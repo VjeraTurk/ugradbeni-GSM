@@ -1,98 +1,100 @@
-
 #include <stdlib.h>
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
-
 #include "lcd.h"
 
-#define F_CPU			8000000UL		    	// CPU clock in Hertz
-#define F_PWM			1000U					// PWM freq ~ 1kHz    dal nam uopce treba pwm ?
-#define N				8
-#define TOP				(((F_CPU/F_PWM)/N)-1)
-#define CONTRAST_DEF	TOP/3
+#define F_CPU	8000000UL
+			
+#define F_PWM	1000U
+#define N		8
+#define TOP		(((F_CPU/F_PWM)/N)-1)
+#define CONTRAST_DEF TOP/3
 
-#define BAUD			9600					// bits per second
-#define BRC				((F_CPU/16/BAUD)-1)		//BAUD PRESCALAR Asynch. mode
-#define TX_BUFFER_SIZE	128
-#define RX_BUFFER_SIZE	128
+#define BAUD 9600
+//#define BRC ((F_CPU/16/BAUD)-1) //BAUD PRESCALAR (for Asynch. mode) 
 
-
-char txBuffer[TX_BUFFER_SIZE];
-char rxBuffer[RX_BUFFER_SIZE];
-
-uint8_t txReadPos=0;
-uint8_t txWritePos=0;
-
-uint8_t rxReadPos=0;
-uint8_t rxWritePos=0;
-
-static void IO_Init(void)
-{
-	lcd_init(LCD_DISP_ON);
-	lcd_clrscr();
-}
-
-void appendtx(char c);
-void txWrite(char c[]);
-char peekChar(void);
-char getChar(void);
-unsigned char USART_getc (void);
-void USART_putc (unsigned char data);
+#define BRC (((F_CPU / (BAUD * 16))) - 1)
 
 
+#define TX_BUFFER_SIZE 128
+#define RX_BUFFER_SIZE 128
+volatile char serialBuffer[TX_BUFFER_SIZE];
+volatile char rxBuffer[RX_BUFFER_SIZE];
+volatile uint8_t serialReadPos=0;
+volatile uint8_t serialWritePos=0;
+volatile uint8_t rxReadPos=0;
+volatile uint8_t rxWritePos=0;
 
-void main(void)
-{
-	//IO_Init();
-	
-	// initialize USART
+void UART_Init(void){
+	/* Set baud rate*/
 	UBRRH = (BRC>>8);
 	UBRRL = BRC;
+	/*Enable reciver and transmitter*/
+	UCSRB = (1 << RXEN) | (1 << TXEN)| (1<<RXCIE)| (1<<TXCIE); // interrupts
+	/*set frame format: 8 bit*/
 	
-	UCSRB = (1 << RXEN) | (1 << TXEN)| (1<<RXCIE)| (1<<TXCIE);
-	UCSRC =  (1 << UCSZ0) | (1 << UCSZ1); // Character Size
-	
-	// enable interrupt
-	sei();
-	
-	// AT commands -> šalje ih mikrokontroler a GSM prima, šalje potvrdu da je primio i prikazuje na LCD
-	char AT[] = "AT";
-	char text_mode[] = "AT + CMGF = 1";
-	char sms[]="AT+CMGS='00385996834050'+SMS";
-	char charater_mode[] = "AT + CMCS = 'GSM'";
-	
-	//	UDR = "AT + CMGF = 1";
-	//	USART_putc(AT);
-	//	USART_putc(text_mode);
-	//	USART_putc(charater_mode);
-	
+	UCSRC =  (1 << UCSZ0) | (1 << UCSZ1); // Character Size 8 bit?
+	/*UPM1 UPM0,  even-1 0 odd- 1 1 */
+}
 
-	//txWrite(text_mode);
-	//txWrite(0x0D); //enter after AT!
-	USART_putc(AT);
-	USART_putc(0x0D);
+
+void appendSerial(char c){
 	
-	_delay_ms(200);
+	//lcd_puts("a");
+	serialBuffer[serialWritePos]=c;	
+	serialWritePos++;
 	
-	char c= USART_getc();
+	if(serialWritePos>=TX_BUFFER_SIZE)
+	{
+	serialWritePos=0;
+	}	
+}
+
+void serialWrite(char c[]){
 	
-	//if(c) lcd_clrscr();
-	//lcd_puts(c);
+	for(uint8_t i = 0;i <strlen(c);i++)
+	{
+		appendSerial(c[i]);
 	
-	while (1) {
-		
-		//unsigned char a = USART_getc();
-		//lcd_puts (a);
-		
-		
-		//rxBuffer
-		
-		//if(rxBuffer[k-1]="O");
 	}
+		
+		if(UCSRA & (1<<UDRE))
+		{
+			UDR=0;
+		}
+
+}
+
+ISR(USART_TXC_vect){
 	
+	if(serialReadPos != serialWritePos)
+	{
+		//char c= serialBuffer[serialReadPos];
+		//lcd_puts(c);
+		UDR = serialBuffer[serialReadPos];
+		lcd_puts (serialBuffer[serialReadPos]);
+		//lcd_puts_P("TX");
+		serialReadPos++;
+		
+		if (serialReadPos>=TX_BUFFER_SIZE)
+		{
+			serialReadPos=0;
+		}
+	}
+
+}
+ISR(USART_RXC_vect){
 	
+	rxBuffer[rxWritePos]= UDR;
+	lcd_puts_P("RX");
+		
+	rxWritePos++;
+	
+	if(rxWritePos>=RX_BUFFER_SIZE){
+		rxWritePos=0;
+	}
 }
 
 
@@ -100,16 +102,18 @@ char peekChar(void){
 	char ret= '\0';
 	
 	if(rxReadPos!=rxWritePos){
+		
 		ret= rxBuffer[rxWritePos];
-	}
+		}
 	return ret;
 	
 }
 
-char getChar(void){ // to s interruptom je isto kao i USART_getc
+char getChar(void){
 	
 	char ret= '\0';
-	if(rxReadPos!=rxWritePos){	
+	if(rxReadPos!=rxWritePos){
+		
 		ret= rxBuffer[rxWritePos];
 		rxReadPos++;
 		
@@ -119,28 +123,6 @@ char getChar(void){ // to s interruptom je isto kao i USART_getc
 	}
 	
 	return ret;
-}
-
-void appendtx(char c){ //to i txWrite i interrupt je isto kao i putc
-	
-	txBuffer[txWritePos]=c;
-	txWritePos++;
-	
-	if(txWritePos>=TX_BUFFER_SIZE){
-		txWritePos=0;
-	}
-}
-
-void txWrite(char c[]){
-	
-	for(uint8_t i=0;i<strlen(c);i++)
-	{
-		appendtx(c[i]);
-		if(UCSRA & (1<<UDRE)){
-			UDR=0;
-		}
-
-	}
 }
 
 unsigned char USART_getc (void) {
@@ -157,36 +139,84 @@ void USART_putc (unsigned char data) {
 }
 
 
+static void IO_Init(void)
+{
+	/* initialize display, cursor off */
+	lcd_init(LCD_DISP_ON);
+	/* clear display and home cursor */
+	lcd_clrscr();
+    /* put string to display (line 1) with linefeed */
+   // lcd_puts_P("Hello world\n");	
+}
 
-ISR(USART_TXC_vect){
-	//lcd_puts_P("TX");
-	
-	if(txReadPos!=txWritePos)
+
+
+void main(void)
+{
+	IO_Init();
+	UART_Init();	
+
+	sei();
+	/*	
+	if (bit_is_set(UCSRA,TXC))
 	{
-		UDR=txBuffer[txReadPos];
-		lcd_puts_P("TX");
-		//lcd_puts_P(txBuffer[txReadPos]);
-		txReadPos++;
-		if (txReadPos>=TX_BUFFER_SIZE){
-			txReadPos=0;
-		}
+		lcd_puts_P("TXCset");
 	}
+	
+	UDR = 'A';
+	_delay_ms(1000);
 
-}
+	
+	UDR = 'T';
+	_delay_ms(1000);	
+	
+	UDR = 'E';
+	_delay_ms(1000);
+	
+	char c = UDR;
+	*/
+	
+	char AT[] = "abcdefgh";
+	char text_mode[] = "AT + CMGF = 1";
+	char sms[]="AT+CMGS='00385996834050'+SMS";
+	char charater_mode[] = "AT + CMCS = 'GSM'";
+	
+//	UDR = "AT + CMGF = 1";
+	
+//	USART_putc(AT);
+//	USART_putc(text_mode);
+//	USART_putc(charater_mode);
+	
 
-ISR(USART_RXC_vect){
+	serialWrite(AT);
+//	serialWrite(0x0D); //enter after AT!
 	
-	rxBuffer[rxWritePos]= UDR;
-	lcd_puts_P("RX");
-	
-	rxWritePos++;
-	
-	if(rxWritePos>=RX_BUFFER_SIZE){
-		rxWritePos=0;
+	//USART_putc(AT);
+	//USART_putc(0x0D);
+	_delay_ms(200);
+		
+	if (bit_is_set(UCSRA,TXC))
+	{
+		lcd_puts_P("TXCset");
 	}
-}
+	
+	//char c= USART_getc();
+	char c= getChar();
+	
+	_delay_ms(200);
+	
 
-
-
+	
+	if (bit_is_set(UCSRA,RXC))
+	{
+		lcd_puts_P("RXCset");
+	}
+	
+	while(1){
+	
+	}
+	
+	
+} 
 
 
