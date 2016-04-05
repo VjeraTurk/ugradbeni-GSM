@@ -4,7 +4,8 @@
 #include <avr/pgmspace.h>
 #include <avr/interrupt.h>
 #include "lcd.h"
-
+#include <string.h>
+//ovo je proba LALALALA
 #define F_CPU	8000000UL
 			
 #define F_PWM	1000U
@@ -16,7 +17,6 @@
 //#define BRC ((F_CPU/16/BAUD)-1) //BAUD PRESCALAR (for Asynch. mode) 
 
 #define BRC (((F_CPU / (BAUD * 16))) - 1)
-
 
 #define TX_BUFFER_SIZE 128
 #define RX_BUFFER_SIZE 128
