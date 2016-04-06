@@ -67,6 +67,8 @@ ISR(USART_TXC_vect){
 
 char numm[13]; 
 uint8_t i=4;
+uint8_t over=0;
+uint8_t tm=0;
 volatile uint8_t f=0;
 
 ISR(USART_RXC_vect){
@@ -74,7 +76,7 @@ ISR(USART_RXC_vect){
 	//lcd_puts("RX");
 	
 	rxBuffer[rxWritePos] = UDR;
-//	rxBuffer[rxWritePos+1] = '/0';
+	rxBuffer[rxWritePos+1] = '/0';
 	
 	if(rxBuffer[rxWritePos]=='5'){
 		if(rxBuffer[rxWritePos-1]=='8'){
@@ -99,10 +101,17 @@ ISR(USART_RXC_vect){
 		//lcd_putc(numm[i]);
 		i++;
 	}
+	if(rxBuffer[rxWritePos]=='K' && rxBuffer[rxWritePos-1]=='O'){
+		
+		lcd_puts("ignor");
+		tm=1;
+	}
 	
-	if(rxBuffer[rxWritePos]=='T'){
-		//full=1;
-		lcd_puts("gotov");
+	if( tm==1 && rxBuffer[rxWritePos]=='K' && rxBuffer[rxWritePos-1]=='O'){
+		
+		lcd_puts("gotovo");
+		over=1;
+		tm=0;
 	}
 	
 	//lcd_putc(UDR);
@@ -185,10 +194,12 @@ void main(void)
 ///SMS	
 	char sms[]="AT+CMGS=";
 	char num ="00385919390809";
-	char sms_text[]="<3";
-
+	//char sms_text[30];
+	
+//TEXT MODE
 	USART_puts(text_mode);
 	USART_putc(13);
+	
 	/*
 	USART_puts(sms);
 	USART_putc(34);
@@ -224,14 +235,45 @@ void main(void)
 	}
 	*/
 	lcd_puts(numm);
+	
+	while(1){
 		
-	_delay_ms(200);
+		if(over){
+			
+				lcd_puts("temp");
+				over=0;
+			
+		
+		if (strstr(rxBuffer, "Temperatura?")) {
+			lcd_gotoxy(0,1);
+			lcd_puts("vvvvv");
+			char sms_text[]="Trenutna temperatura: ** °C";
+			
+			lcd_puts(sms);	
+			USART_puts(sms);
+			
+			lcd_putc(34);
+			USART_putc(34);
+			lcd_puts(numm);
+			USART_puts(numm);
+			
+			lcd_putc(34);
+			USART_putc(34);
+			_delay_ms(1000);
+			
+			lcd_putc(13);
+			USART_putc(13);
+			lcd_puts(sms_text);	
+			USART_puts(sms_text);
+			
+			USART_putc(26);// CTRL+z
+			USART_putc(13);
 	
-
-	
-	while(1){}
+			lcd_puts("poslano");
+		}
+		}
+	}
 	
 } 
-
 
 
