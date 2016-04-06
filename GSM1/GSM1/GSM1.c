@@ -18,7 +18,7 @@
 
 
 #define TX_BUFFER_SIZE 128
-#define RX_BUFFER_SIZE 128
+#define RX_BUFFER_SIZE 255
 char serialBuffer[TX_BUFFER_SIZE];
 char rxBuffer[RX_BUFFER_SIZE];
 
@@ -65,13 +65,47 @@ ISR(USART_TXC_vect){
 	
 }
 
+char numm[13]; 
+uint8_t i=4;
+volatile uint8_t f=0;
+
 ISR(USART_RXC_vect){
 	
 	//lcd_puts("RX");
-	lcd_putc(UDR);
-	rxBuffer[rxWritePos] = UDR;
 	
-	//lcd_puts(UDR);
+	rxBuffer[rxWritePos] = UDR;
+//	rxBuffer[rxWritePos+1] = '/0';
+	
+	if(rxBuffer[rxWritePos]=='5'){
+		if(rxBuffer[rxWritePos-1]=='8'){
+			f=1;
+			/*
+			numm[3] = rxBuffer[rxWritePos];
+			numm[2] = rxBuffer[rxWritePos-1];
+			numm[1] = rxBuffer[rxWritePos-2];
+			numm[0] = rxBuffer[rxWritePos-3];
+			numm[0] = rxBuffer[rxWritePos-4];
+			*/
+		numm[0]='+';
+		numm[1]='3';
+		numm[2]='8';
+		i=3;
+				
+		}
+	}
+	
+	if(f==1 && i<13 ){
+		numm[i]=rxBuffer[rxWritePos];
+		//lcd_putc(numm[i]);
+		i++;
+	}
+	
+	if(rxBuffer[rxWritePos]=='T'){
+		//full=1;
+		lcd_puts("gotov");
+	}
+	
+	//lcd_putc(UDR);
 	//lcd_putc (rxBuffer[rxWritePos]);
 	rxWritePos++;
 	
@@ -80,17 +114,6 @@ ISR(USART_RXC_vect){
 	}
 }
 
-
-char peekChar(void){
-	 char ret= '\0';
-	
-	if(rxReadPos!=rxWritePos){
-		
-		ret= rxBuffer[rxWritePos];
-		}
-	return ret;
-	
-}
 
 char getChar(void){
 	
@@ -159,20 +182,14 @@ void main(void)
 	//potreban delay!!
 	char AT[] = "AT"; // 4 znamenke potrebne
 	char text_mode[] = "AT+CMGF=1";
-	
+///SMS	
 	char sms[]="AT+CMGS=";
 	char num ="00385919390809";
 	char sms_text[]="<3";
-	
-	//USART_putc(65);
-	//_delay_ms(1000);
-	//USART_putc(84);
-	//_delay_ms(1000);
-	//USART_putc(13);
-	
+
 	USART_puts(text_mode);
 	USART_putc(13);
-	
+	/*
 	USART_puts(sms);
 	USART_putc(34);
 	USART_puts(num);
@@ -183,14 +200,31 @@ void main(void)
 	USART_puts(sms_text);
 	USART_putc(26);// CTRL+z
 	USART_putc(13);
-		
-	//char c= USART_getc();
+	*/
+/// READ MESSAGE
 	
-	//USART_putc(AT);
-	//USART_putc("A");
-	//USART_putc("T");
+	//zahtjev za poruku  s indexom 1
+	char request[]="at+cmgr=1";	
+	char number[9];
+	
+	USART_puts(request);
+	USART_putc(13);
+	_delay_ms(5000);
 	
 
+	char *p; /**< Pointer used for sliding through an array of chars */
+	
+	rxWritePos=0;
+	/*
+	if (strstr(rxBuffer, "+385")) {
+		p = strstr(rxBuffer, "+385"); 
+		p = strchr(p, "3");
+		//lcd_puts(p);
+		strncpy(number, p, 9);
+	}
+	*/
+	lcd_puts(numm);
+		
 	_delay_ms(200);
 	
 
@@ -198,5 +232,6 @@ void main(void)
 	while(1){}
 	
 } 
+
 
 
