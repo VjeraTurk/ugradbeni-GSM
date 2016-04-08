@@ -15,7 +15,7 @@
 #define BRC ((F_CPU/16/BAUD)-1) //BAUD PRESCALAR (for Asynch. mode) 
 
 //#define BRC (((F_CPU / (BAUD * 16))) - 1)
-
+//proba
 
 #define TX_BUFFER_SIZE 128
 #define RX_BUFFER_SIZE 255
