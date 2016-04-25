@@ -96,8 +96,10 @@ ISR(USART_TXC_vect)
 	}
 
 }
+
 volatile uint8_t tm_flag=0; //text mode flag: 1 - request sent 2 - OK answer received
 volatile uint8_t rq_flag=0; //text mode flag: 1 - command sent 2 - OK answer received
+volatile uint8_t del_flag=0; //text mode flag: 1 - command sent 2 - OK answer received
 ISR(USART_RXC_vect)
 {
 	rxBuffer[rxWritePos] = UDR;
@@ -116,6 +118,13 @@ ISR(USART_RXC_vect)
 			//lcd_puts("msg read");
 			rq_flag=2;
 		}
+	
+		if(del_flag==1){
+			//lcd_puts("deleted");
+			del_flag=2;
+		}
+	
+	
 	}
 	
 	rxWritePos++;
@@ -170,9 +179,16 @@ void delete_sms(char index){
 	char delete[]="at+cmgd=";
 	USART_puts(delete);
 	USART_putc(index);
+	del_flag=1;
 	USART_putc(13);
 	_delay_ms(3000);
+	if(del_flag==2) {
+		del_flag=0;
+		lcd_puts("deleted");
+		_delay_ms(1000);
 	
+	}
+		
 }
 /*	void refresh_rxBuffer()
 Function "empties" the rxBuffer and sets R/W positions on index 0- begening of rxBuffer;
@@ -225,7 +241,7 @@ int get_from_number(int read ){
 int read_rxBuffer(void);
 
 Function reads (shows in first row on lcd, and rewrites if more than 16 char) what is written in rxBuffer after GSM finishes responding 
-to AT command (request or delete message). 
+to AT command (request message). 
 
 There are 3 answers we are looking for:
 1)	+CME: ERROR 321
@@ -265,7 +281,7 @@ int read_rxBuffer(void){
 			
 	}
 	
-	if(strstr(rxBuffer,"+CSM ERROR: 321 ")){
+	if(strstr(rxBuffer,"+CMS ERROR: 32")){
 	
 		lcd_puts("no message");
 		return 1; // ERROR 321 -no message with this index, return 1 so code can perside to next message;
@@ -274,9 +290,11 @@ int read_rxBuffer(void){
 		lcd_puts("message found"); //OK - continue;
 	
 		}else{
+		
 		lcd_puts("ERROR 4 or similar");
 		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message;
-		} 
+		
+} 
 	//case OK: continue	
 
 	int read=-1;
@@ -463,7 +481,7 @@ int main(void)
 			
 						
 			LUX();
-			//delete_sms(index);
+			delete_sms(index);
 			refresh_rxBuffer();
 			sms_flag=0;
 			*from_number='\0';
