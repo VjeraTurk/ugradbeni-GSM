@@ -80,7 +80,6 @@ void USART_puts(char str[])
 		_delay_ms(500);
 	}
 }
-
 ISR(USART_TXC_vect)
 {
 	if(txReadPos != txWritePos)
@@ -94,9 +93,7 @@ ISR(USART_TXC_vect)
 			txReadPos=0;
 		}
 	}
-
 }
-
 volatile uint8_t tm_flag=0; //text mode flag: 1 - request sent 2 - OK answer received
 volatile uint8_t rq_flag=0; //text mode flag: 1 - command sent 2 - OK answer received
 volatile uint8_t del_flag=0; //text mode flag: 1 - command sent 2 - OK answer received
@@ -123,7 +120,6 @@ ISR(USART_RXC_vect)
 			//lcd_puts("deleted");
 			del_flag=2;
 		}
-	
 	
 	}
 	
@@ -170,7 +166,7 @@ void request_sms(char index){
 	USART_putc(index);
 	lcd_clrscr();
 	rq_flag=1;
-	USART_putc(13); //enter
+	USART_putc(13); //ENTER
 	_delay_ms(3000);
 	
 }
@@ -214,7 +210,6 @@ while(isdigit(rxBuffer[i])){
 } 
 I drugacije odrediti digit_pos (npr. tražiti drugi '+')*
 	
-
 Knowing on which position phone number starts, it extracts phone number from  rxBuffer (which contains the response to SMS request),
 and saves it to global variable char from_phone_number.
 
@@ -261,10 +256,9 @@ OK
 3) There is READ message, meaning phone number starts at position 22 of response (UN ads 2 more characters). 
 (This case is rare but covered. It would occur if message was not deleted or responded to because of hardware brown out etc.)
 
-4)  other errors like ERROR 4 will cause code to repeat request (return 0).
+4) other errors like ERROR 4 will cause code to repeat request (return 0).
 
 Global variable int sms_flag is set, because int read is local and cannot be read from main.
-
 */
 volatile int sms_flag=0;
 int read_rxBuffer(void){
@@ -293,10 +287,8 @@ int read_rxBuffer(void){
 		
 		lcd_puts("ERROR 4 or similar");
 		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message;
-		
-} 
+		} 
 	//case OK: continue	
-
 	int read=-1;
 	
 	if(strstr(rxBuffer,"READ")){ //found READ in message- do check if 'UN'(READ)		
@@ -320,7 +312,6 @@ int read_rxBuffer(void){
 		get_from_number(read);
 		return 1;
 	}
-	
 	return 0;
 }
 
@@ -345,7 +336,6 @@ It looks for code word "LUX?" in received message. If code word is found getLigh
 and returns value between 1-255. Along with "dan" or "noc" (day(>200) or night(<200)) this value is send back via SMS.
 
 *iskoristiti prednosti txBuffera, napuniti ga sa cijelom komandom, ispisati komandu na lcd i poslati!*
-
 */
 
 void LUX(){
@@ -420,7 +410,6 @@ void LUX(){
 			_delay_ms(1000);
 			lcd_clrscr();
 			lcd_gotoxy(0,0);
-		
 		/*poslati sms kriva kodna rijec? */
 		}
 
@@ -431,8 +420,7 @@ int main(void)
 	IO_Init();
 	UART_Init();
 	ADC_Init();
-	sei();
-	
+	sei();	
 	_delay_ms(3000);
 	
 	//enter TEXT MODE
@@ -446,7 +434,6 @@ int main(void)
 	//refresh (empty) rxBuffer
 	char index='1';
 	//check 9 messages
-
 	for(index='1';index!='9';index++){
 			
 		lcd_clrscr();
@@ -458,12 +445,10 @@ int main(void)
 		rq_flag=0;
 		sms_flag=0;
 		refresh_rxBuffer();
-		
-		//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
-		
+			
 		request_sms(index);	//_ms_delay() within request_sms
 		
-		while(!read_rxBuffer()){
+		while(!read_rxBuffer()){ //until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message	
 			refresh_rxBuffer();
 			rq_flag=0;
 			sms_flag=0;
@@ -479,7 +464,6 @@ int main(void)
 			lcd_clrscr();
 			lcd_gotoxy(0,0);
 			
-						
 			LUX();
 			delete_sms(index);
 			refresh_rxBuffer();
@@ -488,7 +472,6 @@ int main(void)
 		}
 		
 	}
-	
 /// DEFINE AND SEND SMS PROBE
     /*
 	char sms[]="AT+CMGS=";
@@ -506,12 +489,11 @@ int main(void)
 	USART_putc(26);// CTRL+z
 	USART_putc(13);
 	*/
-/// READ MESSAGE
+/// READ MESSAGE PROBE
 /*	
 	char request[]="at+cmgr=1";//zahtjev za poruku  s indexom 1
     USART_puts(request);
     USART_putc(13);
     _delay_ms(5000);
 */
-
 }
