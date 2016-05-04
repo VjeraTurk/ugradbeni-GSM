@@ -220,12 +220,16 @@ int get_from_number(int read ){
 	lcd_clrscr();
 	
 	int digit_pos=24; //UNREAD
+	int pos=36;
 	
-	if(read==2) digit_pos=digit_pos-2; //READ
+	if(read==2) {
+		digit_pos=digit_pos-2; //READ
+		pos=34;
+	}
 	
 	int i=0, j=0;
-	
-	for(i=digit_pos;i<34;i++){
+	//
+	for(i=digit_pos;i<pos;i++){
 		from_number[j]=rxBuffer[i];
 		j++;
 	}
