@@ -373,33 +373,34 @@ void LUX(){
 			lcd_gotoxy(0,0);
 				
 			//lcd_puts(sms);
-			//USART_puts(sms);
+			USART_puts(sms);
 			lcd_putc(34); // "
-			//USART_putc(34); // "
+			USART_putc(34); // "
 				
 			lcd_puts(from_number);
-			//USART_puts(from_number);
+			USART_puts(from_number);
+/*
 			lcd_putc(34); // "
-			//USART_putc(34);
+			USART_putc(34);
 			_delay_ms(1000);
-			//lcd_gotoxy(0,1);
+			lcd_gotoxy(0,1);
 			lcd_putc(13);
-			//USART_putc(13);
+			USART_putc(13);
 			_delay_ms(1000);
 
-			//lcd_puts(sms_text);
-			//USART_puts(sms_text);
-			//lcd_puts(rez);
-			//USART_puts(rez);
+			lcd_puts(sms_text);
+			USART_puts(sms_text);
+			lcd_puts(rez);
+			USART_puts(rez);
 			lcd_puts(dannoc);
-			//USART_puts(dannoc);
+			USART_puts(dannoc);
 				
-			//USART_putc(26);// CTRL+z
-			//USART_putc(13); //ENTER
+			USART_putc(26);// CTRL+z
+			USART_putc(13); //ENTER
 			_delay_ms(3000);
 	
 			lcd_clrscr();
-			lcd_gotoxy(0,0);
+			lcd_gotoxy(0,0);*/
 			
 			lcd_puts_P("poslano");
 			_delay_ms(1000);
@@ -419,16 +420,27 @@ void LUX(){
 
 }
 
+#define LED_PORT PORTA
+#define DDR_PORT DDRA
+
 int main(void)
 {
+	//DDR_PORT = 0xf0;
+	//LED_PORT = 0x00;
+	
 	IO_Init();
 	UART_Init();
 	ADC_Init();
 	sei();	
 	_delay_ms(3000);
 	
+	DDRB |=_BV(PB0) | _BV(PB1) | _BV(PB2);
+	PORTB |=_BV(PB2); //RED
+	
 	//enter TEXT MODE
 	while(!enable_text_mode());
+	PORTB |=_BV(PB0); //BLUE
+	PORTB &=~_BV(PB2);
 	lcd_clrscr();
 	lcd_gotoxy(0,0);
 	lcd_puts("text mode");
@@ -438,43 +450,53 @@ int main(void)
 	//refresh (empty) rxBuffer
 	char index='1';
 	//check 9 messages
-	for(index='1';index!='9';index++){
-			
-		lcd_clrscr();
-		lcd_gotoxy(0,0);	
-		lcd_putc(index);
-		_delay_ms(1000);
-		lcd_clrscr();
-		lcd_gotoxy(0,0);
-		rq_flag=0;
-		sms_flag=0;
-		refresh_rxBuffer();
-			
-		request_sms(index);	//_ms_delay() within request_sms
+	while (1) {
 		
-		while(!read_rxBuffer()){ //until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message	
-			refresh_rxBuffer();
-			rq_flag=0;
-			sms_flag=0;
-			*from_number='\0';
-			request_sms(index);
-		}
-		
-		if(sms_flag){
+		for(index='1';index!='3';index++){
+			PORTB |=_BV(PB0); //BLUE
+			PORTB &=~_BV(PB2);
+			PORTB &=~_BV(PB1);
 			lcd_clrscr();
-			lcd_gotoxy(0,0);
-			lcd_puts("dignut sms flag");
+			lcd_gotoxy(0,0);	
+			lcd_putc(index);
 			_delay_ms(1000);
 			lcd_clrscr();
 			lcd_gotoxy(0,0);
-			
-			LUX();
-			delete_sms(index);
-			refresh_rxBuffer();
+			rq_flag=0;
 			sms_flag=0;
-			*from_number='\0';
-		}
+			refresh_rxBuffer();
+			
+			request_sms(index);	//_ms_delay() within request_sms
 		
+			while(!read_rxBuffer()){ //until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message	
+				refresh_rxBuffer();
+				rq_flag=0;
+				sms_flag=0;
+				*from_number='\0';
+				request_sms(index);
+			}
+		
+			if(sms_flag){
+				
+				PORTB |=_BV(PB1); //GREEN
+				lcd_clrscr();
+				lcd_gotoxy(0,0);
+				lcd_puts("dignut sms flag");
+				_delay_ms(1000);
+				lcd_clrscr();
+				lcd_gotoxy(0,0);
+			
+				LUX();
+				//PORTB &=~_BV(PB1);
+				PORTB &=~_BV(PB0);
+				
+				delete_sms(index);
+				refresh_rxBuffer();
+				sms_flag=0;
+				*from_number='\0';
+			}
+		
+		}
 	}
 /// DEFINE AND SEND SMS PROBE
     /*
