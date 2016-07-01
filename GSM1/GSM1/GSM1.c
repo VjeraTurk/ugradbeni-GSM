@@ -1,4 +1,4 @@
-#define  F_CPU	        8000000UL
+#define  F_CPU           8000000UL
 
 #include <stdlib.h>
 #include <avr/io.h>
@@ -8,12 +8,12 @@
 #include <string.h>
 
 #include "lcd.h"
-
-#define F_PWM	        1000Ubh
-#define N		        8
-#define TOP		        (((F_CPU/F_PWM)/N)-1)
+/*
+#define F_PWM           1000Ubh
+#define N               8
+#define TOP               (((F_CPU/F_PWM)/N)-1)
 #define CONTRAST_DEF    TOP/3
-
+*/
 #define BAUD            9600
 #define BRC             ((F_CPU/16/BAUD)-1) //BAUD PRESCALAR (for Asynch. mode)
 #define TX_BUFFER_SIZE  128
@@ -36,8 +36,8 @@ static void IO_Init(void)
 	// clear display and home cursor
 	lcd_clrscr();
 
-    // put string to display (line 1) with linefeed
-    // lcd_puts_P("Hello world\n");
+	// put string to display (line 1) with linefeed
+	// lcd_puts_P("Hello world\n");
 }
 static void UART_Init(void)
 {
@@ -60,26 +60,12 @@ static void ADC_Init()
 	//AVcc reference voltage
 	ADMUX = _BV(REFS0);
 }
-//USART serial communication functions and interrupts
-void USART_putc (char data)
-{
-	// Wait for empty transmit buffer
-	while ( !( UCSRA & _BV(UDRE)) );
 
-	// Put data into buffer, i.e., send the data
-	lcd_putc(data);
-	UDR = data;
-}
-void USART_puts(char str[])
-{
-	int i;
+volatile uint8_t tm_flag=0; 
+volatile uint8_t rq_flag=0;
+volatile uint8_t del_flag=0; 
+// flag: 0 -command not jet sent, 1 - command sent, 2 - OK answer received
 
-	for(i=0; i<strlen(str); i++)
-	{
-		USART_putc(str[i]);
-		_delay_ms(500);
-	}
-}
 ISR(USART_TXC_vect)
 {
 	if(txReadPos != txWritePos)
@@ -94,20 +80,15 @@ ISR(USART_TXC_vect)
 		}
 	}
 }
-volatile uint8_t tm_flag=0; //text mode flag: 1 - request sent 2 - OK answer received
-volatile uint8_t rq_flag=0; //text mode flag: 1 - command sent 2 - OK answer received
-volatile uint8_t del_flag=0; //text mode flag: 1 - command sent 2 - OK answer received
+
 ISR(USART_RXC_vect)
 {
 	rxBuffer[rxWritePos] = UDR;
-	//na vrhu
- 	//lcd_putc (rxBuffer[rxWritePos]);
+	//lcd_putc (rxBuffer[rxWritePos]);
 	
 	if(rxBuffer[rxWritePos]=='K' && rxBuffer[rxWritePos-1]=='O')
-    {
+	{
 		if(tm_flag==1){
-		
-			lcd_puts("text mode");
 			tm_flag=2;
 		}
 		
@@ -115,107 +96,129 @@ ISR(USART_RXC_vect)
 			//lcd_puts("msg read");
 			rq_flag=2;
 		}
-	
+		
 		if(del_flag==1){
 			//lcd_puts("deleted");
 			del_flag=2;
 		}
-	
+		
 	}
 	
 	rxWritePos++;
 	if(rxWritePos>=RX_BUFFER_SIZE)
-    {
+	{
 		rxWritePos=0;
 	}
 }
-/*
-int enable_text_mode(void)
 
-Function sends AT command for entering text mode to GSM, and sets (3 state) tm_flag to 1. The check if OK response from GSM is received is in ISR_RXC. 
-OK response changes tm_flag in ISR_RXC. After 'O' 'K' is recieved tm_flag is set to 2. Back in this function, after waiting for answer from GSM in _delay_ms(),
-if tm_flag equals 2 (meaning OK is received) return 1, else return 0. If returning 0 function is called all over again from main until 1 is received.
-while(!enable_text_mode());
 
-int tm_flag
-= 0 command not yet sent
-= 1 command sent
-= 2 text mode entered
+//USART serial communication functions and interrupts
+void USART_putc (char data)
+{
+	// Wait for empty transmit buffer
+	while ( !( UCSRA & _BV(UDRE)) );
 
-return 0; OK not received
-return 1; OK received
-*/
-int enable_text_mode(void){
-
-char text_mode[] = "AT+CMGF=1";
-	
-		_delay_ms(3000);
-		USART_puts(text_mode);
-		tm_flag=1;
-		USART_putc(13); //ENTER
-		_delay_ms(3000);
-		lcd_clrscr();
-	if (tm_flag==2) return 1;
-	
-	else return 0;
+	// Put data into buffer, i.e., send the data
+	//lcd_putc(data);
+	UDR = data;
 }
-void request_sms(char index){
-	
-	char request[]="at+cmgr=";
-	USART_puts(request);
-	USART_putc(index);
-	lcd_clrscr();
-	rq_flag=1;
-	USART_putc(13); //ENTER
-	_delay_ms(3000);
-	
-}
-void delete_sms(char index){
-	
-	char delete[]="at+cmgd=";
-	USART_puts(delete);
-	USART_putc(index);
-	del_flag=1;
-	USART_putc(13);
-	_delay_ms(3000);
-	if(del_flag==2) {
-		del_flag=0;
-		lcd_puts("deleted");
-		_delay_ms(1000);
-	
+
+void USART_puts(char str[])
+{
+	int i;
+
+	for(i=0; i<strlen(str); i++)
+	{
+		USART_putc(str[i]);
+		_delay_ms(500);
 	}
-		
 }
-/*	void refresh_rxBuffer()
-Function "empties" the rxBuffer and sets R/W positions on index 0- begening of rxBuffer;
-*/
-void refresh_rxBuffer(){
-	*rxBuffer='\0';
-	rxReadPos=0;
-	rxWritePos=0;
-}
-/* int get_from_number(int read )
 
-Function takes int read as argument, 
-read==1 meaning message is UNREAD and phone number starts at position 24 (T-mobile HR default(?)) 
-read==2 meaning message is READ and phone number starts at position 22 (T-mobile HR default (?))
 
-It is assumed phone number has 13 digits. +385yy xxx xx xx
+int enable_text_mode(void);
+void request_sms(char index);
+void delete_sms(char index);
+void refresh_rxBuffer();
 
-*dodati novu provjeru umjesto trenutne za to?nije rezultate!:
-while(isdigit(rxBuffer[i])){
-	from_number[j]=rxBuffer[i];
-	j++;
-	i++;
-} 
-I drugacije odrediti digit_pos (npr. tražiti drugi '+')*
-	
-Knowing on which position phone number starts, it extracts phone number from  rxBuffer (which contains the response to SMS request),
-and saves it to global variable char from_phone_number.
-
-*/
+int get_from_number(int read );
 volatile char from_number[13];// volatile
-int get_from_number(int read ){
+
+int read_rxBuffer(void);
+volatile int sms_flag=0;
+
+volatile uint8_t getLight(uint8_t channel);
+void LUX();
+volatile char from_number_lux[13];
+
+volatile uint8_t upaljeno = 0;
+
+//“ATD*100#” -> za poziv
+int main(void)
+{
+	IO_Init();
+	UART_Init();
+	ADC_Init();
+	
+    sei();    
+    _delay_ms(3000);
+    
+    DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB
+    DDRA |= _BV(PA7); //LED
+    
+    PORTB |=_BV(PB2); //RED ON
+    
+    while(!enable_text_mode());
+    
+    lcd_clrscr();
+    lcd_gotoxy(0,0);
+
+    PORTB &=~_BV(PB2); //RED OFF    
+    PORTB |=_BV(PB0); //BLUE ON
+
+    char index;
+    
+    
+    while (1) {
+        
+        //check 1 messages
+        for(index='5';index!='9';index++){
+            
+			rq_flag=0;
+			sms_flag=0;
+			del_flag=0;
+			refresh_rxBuffer();
+			        
+            request_sms(index);    //_ms_delay() within request_sms
+        
+            //until there is "READ","UNREAD" or "+CMS ERROR: 321" (no message) in rxBuffer, request for that same message 
+			// if "READ" or "UNREAD" message is found, phone number is extracted and saved as int from_number variable
+            while(!read_rxBuffer())
+            { 
+                refresh_rxBuffer();
+                rq_flag=0;
+                sms_flag=0;
+                *from_number='\0';
+                request_sms(index);
+            }
+        
+            if(sms_flag){ // if "READ" or "UNREAD" message was found
+                LUX();
+                //delete_sms(index);
+				refresh_rxBuffer();
+				sms_flag=0;
+				*from_number='\0';
+				rq_flag=0;
+				del_flag=0;
+				
+            }
+        
+        }
+    }
+}
+
+
+//ISPRAVITI !
+int get_from_number(int read){
 	
 	lcd_clrscr();
 	
@@ -228,7 +231,7 @@ int get_from_number(int read ){
 	}
 	
 	int i=0, j=0;
-	//
+	
 	for(i=digit_pos;i<pos;i++){
 		from_number[j]=rxBuffer[i];
 		j++;
@@ -236,290 +239,326 @@ int get_from_number(int read ){
 	return 1;
 	
 }
-/*
-int read_rxBuffer(void);
 
-Function reads (shows in first row on lcd, and rewrites if more than 16 char) what is written in rxBuffer after GSM finishes responding 
-to AT command (request message). 
-
-There are 3 answers we are looking for:
-1)	+CME: ERROR 321
-2)	+CMGR: "REC UNREAD","0","<phone number>",,"yy/MM/dd,hh:mm:ss±zz"
-<sms text>
-
-OK
-
-3)	+CMGR: "REC READ","0","<phone number>",,"yy/MM/dd,hh:mm:ss±zz"
-<sms text>
-
-OK
-
-
-1) There is no message with this index.
-2) There is UNREAD message, meaning phone number starts at position 24 of response.  
-3) There is READ message, meaning phone number starts at position 22 of response (UN ads 2 more characters). 
-(This case is rare but covered. It would occur if message was not deleted or responded to because of hardware brown out etc.)
-
-4) other errors like ERROR 4 will cause code to repeat request (return 0).
-
-Global variable int sms_flag is set, because int read is local and cannot be read from main.
-*/
-volatile int sms_flag=0;
 int read_rxBuffer(void){
 
-	lcd_clrscr();
-	
-	while(rxReadPos!=rxWritePos){
+    lcd_clrscr();
+    
+    while(rxReadPos!=rxWritePos){
+        //if(rxReadPos%16==0 || rxReadPos==0) lcd_gotoxy(0,0);
+        if (rxReadPos==0) lcd_gotoxy(0,0);
+        else if (rxReadPos==16 || rxReadPos==48) lcd_gotoxy(0,1);
+        else if (rxReadPos==32 || rxReadPos==64) {
+            lcd_clrscr();
+            lcd_gotoxy(0,0);
+        }
+        if (rq_flag == 2) lcd_putc(rxBuffer[rxReadPos]);
+        rxReadPos++;
+        _delay_ms(175);
+    }
+    
+    if(strstr(rxBuffer,"+CMS ERROR: 321"))
+    {
+    	lcd_gotoxy(0,0);
+	    lcd_puts("NEMA PORUKE");
+		lcd_gotoxy(0,1);
+		lcd_puts("tog indexa");
+        return 1; // ERROR 321 -no message with this index, return 1 so code can perside to next message;
+    }
+    else if (strstr(rxBuffer,"OK")) 
+    {
+    //    lcd_puts("message found"); //OK - continue;
+    }
+    
+    else
+    {
+       lcd_clrscr();
+	   lcd_gotoxy(0,0);
+	   lcd_puts("GSM ERROR");
+	   _delay_ms(1000);
+	   lcd_gotoxy(0,0);
+	   lcd_puts(rxBuffer);
 		
-		if(rxReadPos%16==0 || rxReadPos==0) lcd_gotoxy(0,0);
-		
-		lcd_putc(rxBuffer[rxReadPos]);
-		rxReadPos++;
-		_delay_ms(175);
-			
-	}
+        return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message;
+    }
+     
+    //case OK: continue    
+    
+	int read=0;
 	
-	if(strstr(rxBuffer,"+CMS ERROR: 32")){
-	
-		lcd_puts("no message");
-		return 1; // ERROR 321 -no message with this index, return 1 so code can perside to next message;
-	
-	} else if (strstr(rxBuffer,"OK")) {
-		lcd_puts("message found"); //OK - continue;
-	
-		}else{
-		
-		lcd_puts("ERROR 4 or similar");
-		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message;
-		} 
-	//case OK: continue	
-	int read=-1;
-	
-	if(strstr(rxBuffer,"READ")){ //found READ in message- do check if 'UN'(READ)		
-		read=0;
-		sms_flag=1;
-	}
-	
-	if(strstr(rxBuffer,"UNREAD")){ // found UNREAD
-		read=1; // UNREAD message found, number starts at position 24
-	} else  read=2; //READ message found number starts at position 22
-	
-	_delay_ms(1000);
-	lcd_clrscr();
-	
-	if(read==1) lcd_puts("THE UNREAD SMS");
-	if(read==2) lcd_puts("THE READ SMS");
-	_delay_ms(1000);
-	lcd_clrscr();
-	
-	if(read){
-		get_from_number(read);
-		return 1;
-	}
-	return 0;
+    if(strstr(rxBuffer,"UNREAD")){ // found UNREAD
+        read=1; // UNREAD message found, number starts at position 24
+        sms_flag=1;
+        get_from_number(read);
+        return 1;
+    }
+    
+    else if(strstr(rxBuffer,"READ")){ //found READ in message
+        read=2;//READ message found number starts at position 22
+        sms_flag=1;
+        get_from_number(read);
+        return 1;
+    }
+    
+    else {
+		//If OK was found, but UNREAD or READ was not- meaning GSM is not in text mode - reenter text mode and than return 0 to request the same message again
+		enable_text_mode();
+	    return 0; 
+		 }
 }
 
 volatile uint8_t getLight(uint8_t channel)
 {
-	//choose channel
-	ADMUX &= ~(0x7);
-	ADMUX |= channel;
-	ADMUX |= 1<<ADLAR;
+    //choose channel
+    ADMUX &= ~(0x7);
+    ADMUX |= channel;
+    ADMUX |= 1<<ADLAR;
 
-	//start conversion
-	ADCSRA |= _BV(ADSC);
+    //start conversion
+    ADCSRA |= _BV(ADSC);
 
-	//wait until conversion completes
-	while (ADCSRA & _BV(ADSC) );
-	return ADCH;
+    //wait until conversion completes
+    while (ADCSRA & _BV(ADSC) );
+    return ADCH;
 }
-/* void LUX();
-
-If sms_flag is set, LUX()function is entered. 
-It looks for code word "LUX?" in received message. If code word is found getLight() function mesures light intensity 
-and returns value between 1-255. Along with "dan" or "noc" (day(>200) or night(<200)) this value is send back via SMS.
-
-*iskoristiti prednosti txBuffera, napuniti ga sa cijelom komandom, ispisati komandu na lcd i poslati!*
-*/
 
 void LUX(){
-	//sms define
-	char sms[]="AT+CMGS="; //sms command
-	char *sms_text="Intenzitet: ";
-	char rez[10];
-	char *dannoc="d/n"; // warning udefined
-	uint8_t adch=0;
-	
-	if(strstr(rxBuffer, "LUX?")){
-				
-			lcd_gotoxy(0,1);
-			adch=getLight(1);
-				
-			if (adch>200){	
-				dannoc=" dan";
-			}else if(adch<200){
-				dannoc=" noc";
-			}
-				
-			itoa(adch,rez,10);
-				
-			lcd_gotoxy(0,0);
-			lcd_puts(rez);
-			lcd_puts(dannoc);
-			
+    //sms define
+    char sms[]="AT+CMGS="; //sms command
+    char *sms_text="Intenzitet: ";
+    char rez[10];
+    char *dannoc="d/n"; // warning undefined
+    uint8_t adch=0;
+
+    uint8_t i;
+    static uint8_t after_lux=0;
+    
+    if(strstr(rxBuffer, "LUX?")){
+
+			lcd_clrscr();            
+			lcd_gotoxy(0,0);    
+			lcd_puts("poruka: LUX");
 			_delay_ms(1000);
 			lcd_clrscr();
-
-			lcd_gotoxy(0,0);
+			
+            lcd_gotoxy(0,1);
+            adch=getLight(1);
+			
+            if (adch>200){    
+                dannoc=" dan";
 				
-			//lcd_puts(sms);
-			USART_puts(sms);
-			lcd_putc(34); // "
-			USART_putc(34); // "
-				
-			lcd_puts(from_number);
-			USART_puts(from_number);
-/*
-			lcd_putc(34); // "
-			USART_putc(34);
-			_delay_ms(1000);
-			lcd_gotoxy(0,1);
-			lcd_putc(13);
-			USART_putc(13);
-			_delay_ms(1000);
-
-			lcd_puts(sms_text);
-			USART_puts(sms_text);
-			lcd_puts(rez);
-			USART_puts(rez);
+                if (upaljeno) {
+                    dannoc = " dan je. Za gasenje svjetla pošaljite: DA";
+                    
+                    for (i=0; i<13; i++) {
+                        from_number_lux[i] = from_number[i];
+                    }
+                    after_lux = 1; //priprema za gasenje ledice ako sljedeca poruka bude "DA"    
+                }
+                
+            }else{
+                dannoc=" noc";
+                
+                if (!upaljeno) {
+                    dannoc=" noc. Za paljenje svjetla pošaljite:DA";
+                    for (i=0; i<13; i++) {
+                        from_number_lux[i] = from_number[i];
+                    }
+                    after_lux = 1; //priprema za paljenje ledice ako sljedeca poruka bude "DA"
+                }
+            }
+                
+            itoa(adch,rez,10);        
+           
+            lcd_gotoxy(0,0);
+            lcd_puts(rez);
 			lcd_puts(dannoc);
-			USART_puts(dannoc);
-				
-			USART_putc(26);// CTRL+z
-			USART_putc(13); //ENTER
 			_delay_ms(3000);
-	
+            	
+			/*
+            USART_puts(sms);
+            USART_putc(34);
+                
+            USART_puts(from_number);
+            USART_putc(34);
+            _delay_ms(1000);
+            USART_putc(13);
+            _delay_ms(1000);
+
+            USART_puts(sms_text);
+            USART_puts(rez);
+            USART_puts(dannoc);
+            //USART_putc(26); // CTRL+z
+            //USART_putc(13); //ENTER
+            _delay_ms(3000);
+            */
+            
+			PORTB |=_BV(PB1); //GREEN ON
+            PORTB &=~_BV(PB0); //BLUE OFF
+
+            lcd_clrscr();
+            lcd_gotoxy(0,0);
+            lcd_puts_P("Poslan odgovor");
+            lcd_gotoxy(0,1);
+            lcd_puts_P("na poruku LUX.");
+            _delay_ms(2000);
+            
+            PORTB &=~_BV(PB1); //GREEN OFF
+            PORTB |=_BV(PB0); //BLUE ON
+            
+            lcd_clrscr();
+            lcd_gotoxy(0,0);
+                            
+        } else if (strstr(rxBuffer, "DA")) {
+            
 			lcd_clrscr();
-			lcd_gotoxy(0,0);*/
-			
-			lcd_puts_P("poslano");
+			lcd_gotoxy(0,0);
+			lcd_puts("poruka:DA");
 			_delay_ms(1000);
+			lcd_clrscr();			
 			
-			lcd_clrscr();
-			lcd_gotoxy(0,0);
-							
-		}else {
-			lcd_clrscr();
-			lcd_gotoxy(0,0);
-			lcd_puts("Kriva kodna rijec");
-			_delay_ms(1000);
-			lcd_clrscr();
-			lcd_gotoxy(0,0);
-		/*poslati sms kriva kodna rijec? */
-		}
+			if ((after_lux) && (!strcmp(from_number, from_number_lux))) {
+                
+                if (!upaljeno) 
+                {
+                    PORTA |= _BV(PA7); //turn on LED
+                    upaljeno = 1; 
+                }
+                
+                else 
+                {
+                    PORTA &=~_BV(PA7); //turn off LED
+                    upaljeno = 0;
+                }
+                
+                after_lux = 0;
+            }
+                
+       
+	   
+	    }else{
+			
+			/*
+            USART_puts(sms);
+            USART_putc(34);
+            USART_puts(from_number);
+            USART_putc(34);
+            _delay_ms(1000);
+            USART_putc(13);
+            _delay_ms(1000);
+
+            USART_puts("Kriva kodna rijec. Za paljenje/gašenje posaljite:DA");
+            USART_putc(26);// CTRL+z
+            USART_putc(13); //ENTER
+            _delay_ms(3000);*/
+            
+            PORTB |=_BV(PB2); //RED ON
+            PORTB &=~_BV(PB0); //BLUE OFF
+            
+            lcd_clrscr();
+            lcd_gotoxy(0,0);
+            lcd_puts_P("Krivi KOD");
+            lcd_gotoxy(0,1);
+            lcd_puts_P("poslan odgovor.");
+            _delay_ms(2000);
+            lcd_clrscr();
+        }
 
 }
 
-#define LED_PORT PORTA
-#define DDR_PORT DDRA
+int enable_text_mode(void){
 
-int main(void)
-{
-	//DDR_PORT = 0xf0;
-	//LED_PORT = 0x00;
+	char text_mode[] = "AT+CMGF=1";
 	
-	IO_Init();
-	UART_Init();
-	ADC_Init();
-	sei();	
-	_delay_ms(3000);
-	
-	DDRB |=_BV(PB0) | _BV(PB1) | _BV(PB2);
-	PORTB |=_BV(PB2); //RED
+	PORTB |=_BV(PB2); //RED ON
+    PORTB |=_BV(PB1); //GREEN OFF
+    PORTB |=_BV(PB0); //BLUE OFF	
 	
 	//enter TEXT MODE
-	while(!enable_text_mode());
-	PORTB |=_BV(PB0); //BLUE
-	PORTB &=~_BV(PB2);
+	lcd_gotoxy(0,0);
+	lcd_puts_P("Ulazim u text");
+	lcd_gotoxy(0,1);
+	lcd_puts_P("mode");
+	_delay_ms(1000);
+	lcd_gotoxy(4, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	lcd_gotoxy(5, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	lcd_gotoxy(6, 1);
+	lcd_putc('.');
+	
+	//_delay_ms(3000);
+	USART_puts(text_mode);
+	tm_flag=1;
+	USART_putc(13); //ENTER
+	_delay_ms(3000);
+	lcd_clrscr();
+	if (tm_flag==2) return 1;
+	else return 0;
+}
+
+void request_sms(char index){
+	
+	char request[]="AT+CMGR="; // CMGRL- list recived message in text mode
+								// CMGR- list recived message
+	
+	PORTB &=~_BV(PB1); //GREEN OFF
+	PORTB &=~_BV(PB2); //RED OFF
+	PORTB |=_BV(PB0); //BLUE ON
+		
+	USART_puts(request);
+	USART_putc(index);
+
+//	USART_putc("1"); //sta je s indexom 10?( error 4 i 20)
+//	USART_putc("0");
+
+	lcd_clrscr();
+	rq_flag=1;
+	USART_putc(13); //ENTER
+	
+	//_delay_ms(3000); zamjena?
+	
 	lcd_clrscr();
 	lcd_gotoxy(0,0);
-	lcd_puts("text mode");
+	lcd_puts_P("Dohvacam poruku");
+	lcd_gotoxy(0,1);
+	lcd_puts_P ("indexa ");
+	lcd_putc(index);
+	lcd_gotoxy(8, 1);
+	lcd_putc('.');
 	_delay_ms(1000);
-	lcd_clrscr();
+	lcd_gotoxy(9, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	lcd_gotoxy(10, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+}
+
+void delete_sms(char index){
 	
-	//refresh (empty) rxBuffer
-	char index='1';
-	//check 9 messages
-	while (1) {
-		
-		for(index='1';index!='3';index++){
-			PORTB |=_BV(PB0); //BLUE
-			PORTB &=~_BV(PB2);
-			PORTB &=~_BV(PB1);
-			lcd_clrscr();
-			lcd_gotoxy(0,0);	
-			lcd_putc(index);
-			_delay_ms(1000);
-			lcd_clrscr();
-			lcd_gotoxy(0,0);
-			rq_flag=0;
-			sms_flag=0;
-			refresh_rxBuffer();
-			
-			request_sms(index);	//_ms_delay() within request_sms
-		
-			while(!read_rxBuffer()){ //until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message	
-				refresh_rxBuffer();
-				rq_flag=0;
-				sms_flag=0;
-				*from_number='\0';
-				request_sms(index);
-			}
-		
-			if(sms_flag){
-				
-				PORTB |=_BV(PB1); //GREEN
-				lcd_clrscr();
-				lcd_gotoxy(0,0);
-				lcd_puts("dignut sms flag");
-				_delay_ms(1000);
-				lcd_clrscr();
-				lcd_gotoxy(0,0);
-			
-				LUX();
-				//PORTB &=~_BV(PB1);
-				PORTB &=~_BV(PB0);
-				
-				delete_sms(index);
-				refresh_rxBuffer();
-				sms_flag=0;
-				*from_number='\0';
-			}
-		
-		}
+	char delete[]="AT+CMGD=";
+	USART_puts(delete);
+	USART_putc(index);
+	lcd_gotoxy(0,0);
+	lcd_puts("izbrisana poruka");
+	lcd_gotoxy(0,1);
+	lcd_puts("br ");
+	lcd_puts(index);
+	
+	del_flag=1;
+	USART_putc(13);
+	_delay_ms(3000);
+	if(del_flag==2) {
+		del_flag=0;
+		lcd_puts("deleted");
+		_delay_ms(1000);
 	}
-/// DEFINE AND SEND SMS PROBE
-    /*
-	char sms[]="AT+CMGS=";
-	char *num ="+385996834050";
-    char sms_text[30]="Probni sms";
-
-	USART_puts(sms);
-	USART_putc(34);
-	USART_puts(num);
-	USART_putc(34);
-	_delay_ms(1000);
-	USART_putc(13);
-
-	USART_puts(sms_text);
-	USART_putc(26);// CTRL+z
-	USART_putc(13);
-	*/
-/// READ MESSAGE PROBE
-/*	
-	char request[]="at+cmgr=1";//zahtjev za poruku  s indexom 1
-    USART_puts(request);
-    USART_putc(13);
-    _delay_ms(5000);
-*/
+}
+void refresh_rxBuffer(){
+	*rxBuffer='\0';
+	rxReadPos=0;
+	rxWritePos=0;
 }
