@@ -35,6 +35,27 @@ volatile char from_number[13];
 volatile char from_number_lux[13];
 volatile int sms_flag=0;
 
+void init(){
+	//initialize IO
+	lcd_init(LCD_DISP_ON);
+	lcd_clrscr();
+	
+	//initialize UART
+	//set baud rate
+	UBRRH = 0;
+	UBRRL = BRC;
+	//enable receiver and transmitter
+	UCSRB = (1 << RXEN) | (1 << TXEN)| (1<<RXCIE)| (1<<TXCIE);
+	//set frame format: 8 bit, character size 8 bit
+	UCSRC = (1 << UCSZ0) | (1 << UCSZ1)|(1 << URSEL);
+	
+	//initialize ADC
+	//adc enable, prescaler=64 -> clk=115200
+	ADCSRA = _BV(ADEN)|_BV(ADPS2)|_BV(ADPS1);
+	//AVcc reference voltage
+	ADMUX = _BV(REFS0);
+}
+
 ISR(USART_TXC_vect)
 {
 	if(txReadPos != txWritePos)
@@ -99,41 +120,18 @@ void LUX();
 void reboot();
 void see_rxBuffer();
 //“ATD*100#” -> za poziv
+
 int main(void)
 {
-	//initialize IO
-	lcd_init(LCD_DISP_ON);
-	lcd_clrscr();
-	
-	//initialize UART
-	//set baud rate
-	UBRRH = 0;
-	UBRRL = BRC;
-	//enable receiver and transmitter
-	UCSRB = (1 << RXEN) | (1 << TXEN)| (1<<RXCIE)| (1<<TXCIE);
-	//set frame format: 8 bit, character size 8 bit
-	UCSRC = (1 << UCSZ0) | (1 << UCSZ1)|(1 << URSEL);
-	
-	//initialize ADC
-	//adc enable, prescaler=64 -> clk=115200
-	ADCSRA = _BV(ADEN)|_BV(ADPS2)|_BV(ADPS1);
-	//AVcc reference voltage
-	ADMUX = _BV(REFS0);
-	
+	init();
 	sei();
+	
 	_delay_ms(3000);
 	
-	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB
+	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB 210
 	DDRA |= _BV(PA7); //LED
 	
 	PORTB |=_BV(PB2); //RED ON
-	
-	//reboot();
-	//echo();
-	rxBuffer[0]="a";
-	refresh_rxBuffer();
-	lcd_putc(rxBuffer[0]);
-	_delay_ms(1000);
 	
 	while(!enable_text_mode());
 	
@@ -143,10 +141,92 @@ int main(void)
 	PORTB &=~_BV(PB2); //RED OFF
 	PORTB |=_BV(PB0); //BLUE ON
 
+
+		//novo:
+//1. sms
+		char p_sms[]="AT+CMGS=";
+		char p_number[]="385976737211";
+		char p_text[]="kako smo?";
+		char p_text2[]="No?";
+
+		USART_puts(p_sms);
+		USART_putc(34);
+		USART_puts(p_number);
+		USART_putc(34);
+		_delay_ms(1000);
+		USART_putc(13);
+		_delay_ms(3000);
+		see_rxBuffer();
+		_delay_ms(3000);
+		USART_puts(p_text);
+		USART_putc(26); // CTRL+z
+		//USART_putc(13); //ENTER
+		//USART_putc("cr"); //ENTER
+
+		_delay_ms(3000);
+
+
+		PORTB |=_BV(PB1); //GREEN ON
+		PORTB &=~_BV(PB0); //BLUE OFF
+
+		lcd_clrscr();
+		lcd_gotoxy(0,0);
+		lcd_puts_P("Poslan odgovor");
+		lcd_gotoxy(0,1);
+		lcd_puts_P("na poruku.");
+		_delay_ms(2000);
+
+		PORTB &=~_BV(PB1); //GREEN OFF
+		PORTB |=_BV(PB0); //BLUE ON
+
+		see_rxBuffer();
+		_delay_ms(5000);
+		refresh_rxBuffer();
+//2.sms
+		
+
+		USART_puts(p_sms);
+		USART_putc(34);
+		USART_puts(p_number);
+		USART_putc(34);
+		_delay_ms(1000);
+		USART_putc(13);
+		_delay_ms(3000);
+		see_rxBuffer();
+		_delay_ms(3000);
+		USART_puts(p_text2);
+		USART_putc(26); // CTRL+z
+		USART_putc(13); //ENTER
+		//USART_putc("cr"); //ENTER
+
+		_delay_ms(3000);
+
+
+		PORTB |=_BV(PB1); //GREEN ON
+		PORTB &=~_BV(PB0); //BLUE OFF
+
+		lcd_clrscr();
+		lcd_gotoxy(0,0);
+		lcd_puts_P("Poslan odgovor");
+		lcd_gotoxy(0,1);
+		lcd_puts_P("na poruku.");
+		_delay_ms(2000);
+
+		PORTB &=~_BV(PB1); //GREEN OFF
+		PORTB |=_BV(PB0); //BLUE ON
+
+		see_rxBuffer();
+		_delay_ms(5000);
+		refresh_rxBuffer();
+		
+		//end novo
+
+
+
+
 	char index;
 	
-	
-	while (1) {
+	while (0) {
 		
 		//check 2 messages
 		for(index='1';index!='4';index++){
@@ -201,7 +281,8 @@ void USART_puts(char str[])
 	}
 }
 void see_rxBuffer(){
-		
+
+		lcd_clrscr();
 		rxReadPos=0;
 		
 		while(rxReadPos!=rxWritePos){
@@ -212,7 +293,7 @@ void see_rxBuffer(){
 				lcd_clrscr();
 				lcd_gotoxy(0,0);
 			}
-			lcd_putc(rxBuffer[rxReadPos]);
+		lcd_putc(rxBuffer[rxReadPos]);
 			rxReadPos++;
 			_delay_ms(175);
 		}
@@ -382,7 +463,7 @@ int enable_text_mode(void){
 	tm_flag=1;
 	USART_putc(13); //ENTER
 	
-	//_delay_ms(3000);
+	_delay_ms(2000);
 	lcd_gotoxy(4, 1);
 	lcd_putc('.');
 	_delay_ms(1000);
