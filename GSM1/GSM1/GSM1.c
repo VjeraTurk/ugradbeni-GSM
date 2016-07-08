@@ -31,14 +31,16 @@ volatile uint8_t tm_flag=0; //text mode flag: 1 - request sent 2 - OK answer rec
 volatile uint8_t rq_flag=0; //request flag: 1 - command sent 2 - OK answer received
 volatile uint8_t del_flag=0; //delete flag: 1 - command sent 2 - OK answer received
 
-volatile char from_number[13];
-volatile char from_number_lux[13];
-volatile int sms_flag=0;
 
+volatile int sms_flag=0;
+//initialize IO (LCD), UART, ADC, RED LED
 void init(){
 	//initialize IO
 	lcd_init(LCD_DISP_ON);
 	lcd_clrscr();
+	//backlight pins
+	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB PB2 PB1 PB0
+	
 	
 	//initialize UART
 	//set baud rate
@@ -55,11 +57,10 @@ void init(){
 	//AVcc reference voltage
 	ADMUX = _BV(REFS0);
 
-	//backlight and RED LED light
-	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB 210
+	//PA7 RED LED
 	DDRA |= _BV(PA7); //LED
 }
-
+//USART serial communication functions and interrupts
 ISR(USART_TXC_vect)
 {
 	if(txReadPos != txWritePos)
@@ -74,7 +75,6 @@ ISR(USART_TXC_vect)
 		}
 	}
 }
-
 ISR(USART_RXC_vect)
 {
 	rxBuffer[rxWritePos] = UDR;
@@ -128,24 +128,24 @@ void refresh_rxBuffer(){
 	rxReadPos=0;
 	rxWritePos=0;
 }
+void see_rxBuffer(){
 
-volatile uint8_t upaljeno = 0;
-
-
-int enable_text_mode();
-void request_sms(char);
-int read_rxBuffer();
-int get_from_number(int);
-
-volatile uint8_t getLight(uint8_t);
-
-void LUX();
-void delete_sms(char);
-
-void reboot();
-void see_rxBuffer();
-//“ATD*100#” -> za poziv
-
+	lcd_clrscr();
+	rxReadPos=0;
+	
+	while(rxReadPos!=rxWritePos){
+		//if(rxReadPos%16==0 || rxReadPos==0) lcd_gotoxy(0,0);
+		if (rxReadPos==0) lcd_gotoxy(0,0);
+		else if (rxReadPos==16 || rxReadPos==48) lcd_gotoxy(0,1);
+		else if (rxReadPos==32 || rxReadPos==64) {
+			lcd_clrscr();
+			lcd_gotoxy(0,0);
+		}
+		lcd_putc(rxBuffer[rxReadPos]);
+		rxReadPos++;
+		_delay_ms(175);
+	}
+}
 void send_sms(char number[], char sms_text[]){
 	
 	char AT_send_sms[]="AT+CMGS=";
@@ -177,23 +177,63 @@ void _3_sms_test(){
 
 	send_sms(p_number,p_text);
 	send_sms(p_number,p_text2);
-	send_sms(p_number,p_text3);		
+	send_sms(p_number,p_text3);
 }
+
+
+void date_time_check(){
+	
+	char cclk[]="at+cclk?";
+	
+	lcd_clrscr();
+	lcd_puts_P("Datum i vrijeme:");
+	refresh_rxBuffer();
+	USART_puts(cclk);
+	USART_putc(13); //ENTER
+	_delay_ms(5000);
+	lcd_clrscr();
+	_delay_ms(1000);
+	see_rxBuffer();
+}
+
+
+int enable_text_mode();
+void request_sms(char);
+int read_rxBuffer();
+
+int get_from_number(int);
+	volatile char from_number[13];
+	
+volatile uint8_t getLight(uint8_t);
+
+void LUX();
+	volatile uint8_t upaljeno = 0;
+	volatile char from_number_lux[13];
+
+
+void delete_sms(char);
+void reboot();
+//“ATD*100#” -> za poziv
 
 int main(void)
 {
+	
 	init();
 	sei();
-	_delay_ms(3000);
+	_delay_ms(5000);
 	
 	while(!enable_text_mode());
 	
 	char index;
-	_3_sms_test();
-
-	while (0) {
+	
+//	_3_sms_test(); -radi
+//	date_time_check(); -radi
+//	reboot(); -radi
+//	date_time_check(); -radi
+	
+	while (1) {
 		
-		for(index='1';index!='4';index++){
+		for(index='1';index!='9';index++){
 
 			rq_flag=0;
 			sms_flag=0;
@@ -203,6 +243,7 @@ int main(void)
 			//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
 			while(!read_rxBuffer())
 			{
+				//see_rxBuffer();
 				refresh_rxBuffer();
 				rq_flag=0;
 				sms_flag=0;
@@ -221,27 +262,52 @@ int main(void)
 		}
 	}
 }
+int enable_text_mode(void){
 
-//USART serial communication functions and interrupts
-
-void see_rxBuffer(){
-
+	char text_mode[] = "AT+CMGF=1";
+	//enter TEXT MODE
+	PORTB |=_BV(PB2); //RED ON
+	
+	refresh_rxBuffer();
+	lcd_clrscr();
+	lcd_gotoxy(0,0);
+	lcd_puts_P("Ulazim u text");
+	lcd_gotoxy(0,1);
+	lcd_puts_P("mode");
+	USART_puts(text_mode);
+	tm_flag=1;
+	USART_putc(13); //ENTER
+	
+	_delay_ms(2000);
+	lcd_gotoxy(4, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	lcd_gotoxy(5, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	lcd_gotoxy(6, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	
+	if (tm_flag==2){
+		tm_flag=0; //novo
 		lcd_clrscr();
-		rxReadPos=0;
 		
-		while(rxReadPos!=rxWritePos){
-			//if(rxReadPos%16==0 || rxReadPos==0) lcd_gotoxy(0,0);
-			if (rxReadPos==0) lcd_gotoxy(0,0);
-			else if (rxReadPos==16 || rxReadPos==48) lcd_gotoxy(0,1);
-			else if (rxReadPos==32 || rxReadPos==64) {
-				lcd_clrscr();
-				lcd_gotoxy(0,0);
-			}
-		lcd_putc(rxBuffer[rxReadPos]);
-			rxReadPos++;
-			_delay_ms(175);
-		}
+		PORTB &=~_BV(PB2); //RED OFF
+		PORTB |=_BV(PB0); //BLUE ON
+		return 1;
+	} else {
+		lcd_clrscr();
+		_delay_ms(500);
+		lcd_puts_P("rxBuffer:");
+		_delay_ms(500);
+		see_rxBuffer();
+		return 0;
+	}
 }
+
+
+
 int read_rxBuffer(void){
 
 	lcd_clrscr();
@@ -350,86 +416,30 @@ void reboot(){
 	
 	char reboot[]="at+cfun=1,1";
 	
+	refresh_rxBuffer();
+	lcd_clrscr();
+	lcd_puts_P("rebooting...");	
 	USART_puts(reboot);
 	USART_putc(13); //ENTER
-	refresh_rxBuffer();
-	lcd_puts_P("rebooting...");
 	_delay_ms(5000);
 	lcd_clrscr();
-	lcd_puts(rxBuffer);
+	see_rxBuffer();
 	_delay_ms(1000);
 	
 }
 void echo(){
-	// after flushing buffer "\r
+
 	char echo[]="ate1";
 	
 	USART_puts(echo);
 	USART_putc(13); //ENTER
 	refresh_rxBuffer();
+	lcd_clrscr();
 	lcd_puts_P("echo...");
 	_delay_ms(5000);
 	lcd_clrscr();
-	lcd_puts(rxBuffer);
-	_delay_ms(1000);
-}
-
-void date_time_check(){
-	// after flushing buffer "\r
-	char cclk[]="at+cclk?";
-	
-	USART_puts(cclk);
-	USART_putc(13); //ENTER
-	refresh_rxBuffer();
-	lcd_puts_P("echo...");
-	_delay_ms(5000);
-	lcd_clrscr();
-	lcd_puts(rxBuffer);
-	_delay_ms(1000);
 	see_rxBuffer();
-}
-int enable_text_mode(void){
-
-	char text_mode[] = "AT+CMGF=1";
-	//enter TEXT MODE
-	PORTB |=_BV(PB2); //RED ON
-	
-	refresh_rxBuffer();
-	lcd_clrscr();
-	lcd_gotoxy(0,0);
-	lcd_puts_P("Ulazim u text");
-	lcd_gotoxy(0,1);
-	lcd_puts_P("mode");
-	USART_puts(text_mode);
-	tm_flag=1;
-	USART_putc(13); //ENTER
-	
-	_delay_ms(2000);
-	lcd_gotoxy(4, 1);
-	lcd_putc('.');
 	_delay_ms(1000);
-	lcd_gotoxy(5, 1);
-	lcd_putc('.');
-	_delay_ms(1000);
-	lcd_gotoxy(6, 1);
-	lcd_putc('.');
-	_delay_ms(1000);
-	
-	if (tm_flag==2){
-		tm_flag=0; //novo
-		lcd_clrscr();
-		
-		PORTB &=~_BV(PB2); //RED OFF
-		PORTB |=_BV(PB0); //BLUE ON
-		return 1;
-	} else {
-		lcd_clrscr();
-		_delay_ms(500);
-		lcd_puts_P("rxBuffer:");
-		_delay_ms(500);
-		see_rxBuffer();
-		return 0;
-	}
 }
 
 void request_sms(char index){
@@ -519,8 +529,6 @@ volatile uint8_t getLight(uint8_t channel)
 	while (ADCSRA & _BV(ADSC) );
 	return ADCH;
 }
-
-
 void LUX(){
 	//sms define
 	char sms[]="AT+CMGS="; //sms command
@@ -652,7 +660,7 @@ void LUX(){
 		
 		PORTB &=~_BV(PB1); //GREEN OFF
 		PORTB |=_BV(PB0); //BLUE ON
-		lcd_clrscr();
+		
 		see_rxBuffer();
 		
 	}
