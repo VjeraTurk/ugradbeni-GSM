@@ -54,6 +54,10 @@ void init(){
 	ADCSRA = _BV(ADEN)|_BV(ADPS2)|_BV(ADPS1);
 	//AVcc reference voltage
 	ADMUX = _BV(REFS0);
+
+	//backlight and RED LED light
+	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB 210
+	DDRA |= _BV(PA7); //LED
 }
 
 ISR(USART_TXC_vect)
@@ -100,7 +104,25 @@ ISR(USART_RXC_vect)
 		rxWritePos=0;
 	}
 }
+void USART_putc (char data)
+{
+	// Wait for empty transmit buffer
+	while ( !( UCSRA & _BV(UDRE)) );
 
+	// Put data into buffer, i.e., send the data
+	//lcd_putc(data);
+	UDR = data;
+}
+void USART_puts(char str[])
+{
+	int i;
+
+	for(i=0; i<strlen(str); i++)
+	{
+		USART_putc(str[i]);
+		_delay_ms(500);
+	}
+}
 void refresh_rxBuffer(){
 	*rxBuffer='\0';
 	rxReadPos=0;
@@ -108,133 +130,74 @@ void refresh_rxBuffer(){
 }
 
 volatile uint8_t upaljeno = 0;
-void USART_putc(char);
-void USART_puts(char*);
-int read_rxBuffer();
+
+
 int enable_text_mode();
 void request_sms(char);
-void delete_sms(char);
+int read_rxBuffer();
 int get_from_number(int);
+
 volatile uint8_t getLight(uint8_t);
+
 void LUX();
+void delete_sms(char);
+
 void reboot();
 void see_rxBuffer();
 //“ATD*100#” -> za poziv
+
+void send_sms(char number[], char sms_text[]){
+	
+	char AT_send_sms[]="AT+CMGS=";
+	
+	refresh_rxBuffer();
+	
+	USART_puts(AT_send_sms);
+	USART_putc(34);
+	USART_puts(number);
+	USART_putc(34);
+	_delay_ms(1000);
+	USART_putc(13);
+	_delay_ms(3000);
+	see_rxBuffer();
+	_delay_ms(3000);
+	USART_puts(sms_text);
+	USART_putc(26); // CTRL+z
+	_delay_ms(3000);
+	
+	see_rxBuffer();
+}
+void _3_sms_test(){
+
+	char p_sms[]="AT+CMGS=";
+	char p_number[]="385976737211";
+	char p_text[]="Kad ce";
+	char p_text2[]="vise";
+	char p_text3[]="praznici?";
+
+	send_sms(p_number,p_text);
+	send_sms(p_number,p_text2);
+	send_sms(p_number,p_text3);		
+}
 
 int main(void)
 {
 	init();
 	sei();
-	
 	_delay_ms(3000);
-	
-	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB 210
-	DDRA |= _BV(PA7); //LED
-	
-	PORTB |=_BV(PB2); //RED ON
 	
 	while(!enable_text_mode());
 	
-	lcd_clrscr();
-	lcd_gotoxy(0,0);
-
-	PORTB &=~_BV(PB2); //RED OFF
-	PORTB |=_BV(PB0); //BLUE ON
-
-
-		//novo:
-//1. sms
-		char p_sms[]="AT+CMGS=";
-		char p_number[]="385976737211";
-		char p_text[]="kako smo?";
-		char p_text2[]="No?";
-
-		USART_puts(p_sms);
-		USART_putc(34);
-		USART_puts(p_number);
-		USART_putc(34);
-		_delay_ms(1000);
-		USART_putc(13);
-		_delay_ms(3000);
-		see_rxBuffer();
-		_delay_ms(3000);
-		USART_puts(p_text);
-		USART_putc(26); // CTRL+z
-		//USART_putc(13); //ENTER
-		//USART_putc("cr"); //ENTER
-
-		_delay_ms(3000);
-
-
-		PORTB |=_BV(PB1); //GREEN ON
-		PORTB &=~_BV(PB0); //BLUE OFF
-
-		lcd_clrscr();
-		lcd_gotoxy(0,0);
-		lcd_puts_P("Poslan odgovor");
-		lcd_gotoxy(0,1);
-		lcd_puts_P("na poruku.");
-		_delay_ms(2000);
-
-		PORTB &=~_BV(PB1); //GREEN OFF
-		PORTB |=_BV(PB0); //BLUE ON
-
-		see_rxBuffer();
-		_delay_ms(5000);
-		refresh_rxBuffer();
-//2.sms
-		
-
-		USART_puts(p_sms);
-		USART_putc(34);
-		USART_puts(p_number);
-		USART_putc(34);
-		_delay_ms(1000);
-		USART_putc(13);
-		_delay_ms(3000);
-		see_rxBuffer();
-		_delay_ms(3000);
-		USART_puts(p_text2);
-		USART_putc(26); // CTRL+z
-		USART_putc(13); //ENTER
-		//USART_putc("cr"); //ENTER
-
-		_delay_ms(3000);
-
-
-		PORTB |=_BV(PB1); //GREEN ON
-		PORTB &=~_BV(PB0); //BLUE OFF
-
-		lcd_clrscr();
-		lcd_gotoxy(0,0);
-		lcd_puts_P("Poslan odgovor");
-		lcd_gotoxy(0,1);
-		lcd_puts_P("na poruku.");
-		_delay_ms(2000);
-
-		PORTB &=~_BV(PB1); //GREEN OFF
-		PORTB |=_BV(PB0); //BLUE ON
-
-		see_rxBuffer();
-		_delay_ms(5000);
-		refresh_rxBuffer();
-		
-		//end novo
-
-
-
-
 	char index;
-	
+	_3_sms_test();
+
 	while (0) {
 		
-		//check 2 messages
 		for(index='1';index!='4';index++){
 
 			rq_flag=0;
 			sms_flag=0;
 			refresh_rxBuffer();
-			
 			request_sms(index);    //_ms_delay() within request_sms
 			
 			//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
@@ -260,26 +223,7 @@ int main(void)
 }
 
 //USART serial communication functions and interrupts
-void USART_putc (char data)
-{
-	// Wait for empty transmit buffer
-	while ( !( UCSRA & _BV(UDRE)) );
 
-	// Put data into buffer, i.e., send the data
-	//lcd_putc(data);
-	UDR = data;
-}
-
-void USART_puts(char str[])
-{
-	int i;
-
-	for(i=0; i<strlen(str); i++)
-	{
-		USART_putc(str[i]);
-		_delay_ms(500);
-	}
-}
 void see_rxBuffer(){
 
 		lcd_clrscr();
@@ -428,8 +372,6 @@ void echo(){
 	lcd_clrscr();
 	lcd_puts(rxBuffer);
 	_delay_ms(1000);
-	
-	
 }
 
 void date_time_check(){
@@ -444,15 +386,14 @@ void date_time_check(){
 	lcd_clrscr();
 	lcd_puts(rxBuffer);
 	_delay_ms(1000);
-	
-	
+	see_rxBuffer();
 }
 int enable_text_mode(void){
 
 	char text_mode[] = "AT+CMGF=1";
-	
-	
 	//enter TEXT MODE
+	PORTB |=_BV(PB2); //RED ON
+	
 	refresh_rxBuffer();
 	lcd_clrscr();
 	lcd_gotoxy(0,0);
@@ -476,17 +417,16 @@ int enable_text_mode(void){
 	
 	if (tm_flag==2){
 		tm_flag=0; //novo
-		return 1;
+		lcd_clrscr();
 		
-		} else {
+		PORTB &=~_BV(PB2); //RED OFF
+		PORTB |=_BV(PB0); //BLUE ON
+		return 1;
+	} else {
 		lcd_clrscr();
 		_delay_ms(500);
 		lcd_puts_P("rxBuffer:");
 		_delay_ms(500);
-		
-		//lcd_puts(rxBuffer);
-		//_delay_ms(500);
-		//or:
 		see_rxBuffer();
 		return 0;
 	}
@@ -637,8 +577,7 @@ void LUX(){
 		USART_puts(rez);
 		USART_puts(dannoc);
 		USART_putc(26); // CTRL+z
-		USART_putc(13); //ENTER
-		//USART_putc("cr"); //ENTER
+		//USART_putc(13); //ENTER-->>>NEEE!!!
 		
 		_delay_ms(3000);
 		
@@ -698,7 +637,7 @@ void LUX(){
 
 		USART_puts("Kriva kodna rijec.");
 		USART_putc(26);// CTRL+z
-		USART_putc(13); //ENTER
+		//USART_putc(13); //ENTER->>>>NEEE!!!
 		_delay_ms(3000);
 		
 		PORTB |=_BV(PB1); //GREEN ON
