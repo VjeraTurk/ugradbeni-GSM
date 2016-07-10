@@ -280,13 +280,18 @@ void rainbow(){
 	OCR1B   = TOP/3; //VIOLET
 	_delay_ms(1000);
 	
-	OCR1B   = TOP;
+	TCCR1A = 0;
+	TCCR1B = 0;
+	OCR1A  = 0;
 	
 	TCCR1B &= ~_BV(CS11);
 	TCCR1B &= ~_BV(CS10);
 	
 	TIMSK  &=~_BV(OCIE1A);
 
+	DDRD |=_BV(RED) | _BV(GREEN) | _BV(BLUE); //RGB PB2 PB1 PB0
+	//PORTD|=_BV(RED) | _BV(GREEN) | _BV(BLUE);
+	PORTD|=_BV(GREEN) | _BV(BLUE);
 	
 	sei();
 }
@@ -411,6 +416,8 @@ int read_rxBuffer(void){
 		lcd_clrscr();
 		lcd_puts("nema poruke");
 		_delay_ms(1000);
+		see_rxBuffer();
+		refresh_rxBuffer();
 		return 1; // ERROR 321 -no message with this index, return 1 so code can perside to next message;
 	}
 	else if(strstr(rxBuffer,"+SIND"))
@@ -527,6 +534,7 @@ void request_sms(char index){
 	refresh_rxBuffer();
 	char request[]="AT+CMGR=";
 	lcd_clrscr();
+	BLUE_light();
 	lcd_gotoxy(0,0);
 	lcd_puts_P("Dohvacam poruku");
 	lcd_gotoxy(0,1);
