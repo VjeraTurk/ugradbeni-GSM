@@ -9,15 +9,19 @@
 
 #include "lcd.h"
 
-#define F_PWM           1000Ubh
+#define F_PWM           1000U //bh
 #define N               8
 #define TOP               (((F_CPU/F_PWM)/N)-1)
-#define CONTRAST_DEF    TOP/3
+#define RED_DEF    TOP/3
 
 #define BAUD            9600
 #define BRC             ((F_CPU/16/BAUD)-1) //BAUD PRESCALAR (for Asynch. mode)
 #define TX_BUFFER_SIZE  128
 #define RX_BUFFER_SIZE  255 //255
+
+#define RED		PD4
+#define GREEN	PD3
+#define BLUE	PD2
 
 char txBuffer[TX_BUFFER_SIZE];
 char rxBuffer[RX_BUFFER_SIZE];
@@ -30,7 +34,7 @@ volatile uint8_t rxWritePos=0;
 volatile uint8_t tm_flag=0; //text mode flag: 1 - request sent 2 - OK answer received
 volatile uint8_t rq_flag=0; //request flag: 1 - command sent 2 - OK answer received
 volatile uint8_t del_flag=0; //delete flag: 1 - command sent 2 - OK answer received
-
+//proba
 
 volatile int sms_flag=0;
 //initialize IO (LCD), UART, ADC, RED LED
@@ -39,7 +43,8 @@ void init(){
 	lcd_init(LCD_DISP_ON);
 	lcd_clrscr();
 	//backlight pins
-	DDRB |=_BV(PB2) | _BV(PB1) | _BV(PB0); //RGB PB2 PB1 PB0
+	DDRD |=_BV(RED) | _BV(GREEN) | _BV(BLUE); //RGB PB2 PB1 PB0
+	PORTD|=_BV(RED) | _BV(GREEN) | _BV(BLUE); 
 	
 	
 	//initialize UART
@@ -196,19 +201,38 @@ void date_time_check(){
 	see_rxBuffer();
 }
 
+void RED_light(){
+	PORTD |=_BV(RED); //RED ON
+	
+	PORTD &=~_BV(BLUE); //BLUE OFF
+	PORTD &=~_BV(GREEN);	//GREEN OFF
+}
+
+void BLUE_light(){
+	PORTD |=_BV(BLUE); //BLUE ON
+	
+	PORTD &=~_BV(RED);
+	PORTD &=~_BV(GREEN);
+}
+void GREEN_light(){
+	PORTD |=_BV(GREEN); //RED ON
+	
+	PORTD &=~_BV(RED);
+	PORTD &=~_BV(BLUE);
+}
 
 int enable_text_mode();
 void request_sms(char);
 int read_rxBuffer();
 
 int get_from_number(int);
-	volatile char from_number[13];
-	
+volatile char from_number[13];
+
 volatile uint8_t getLight(uint8_t);
 
 void LUX();
-	volatile uint8_t upaljeno = 0;
-	volatile char from_number_lux[13];
+volatile uint8_t upaljeno = 0;
+volatile char from_number_lux[13];
 
 
 void delete_sms(char);
@@ -226,10 +250,10 @@ int main(void)
 	
 	char index;
 	
-//	_3_sms_test(); -radi
-//	date_time_check(); -radi
-//	reboot(); -radi
-//	date_time_check(); -radi
+	//	_3_sms_test(); -radi
+	//	date_time_check(); -radi
+	//	reboot(); -radi
+	//	date_time_check(); -radi
 	
 	while (1) {
 		
@@ -262,11 +286,13 @@ int main(void)
 		}
 	}
 }
+
 int enable_text_mode(void){
 
 	char text_mode[] = "AT+CMGF=1";
 	//enter TEXT MODE
-	PORTB |=_BV(PB2); //RED ON
+	
+	RED_light();
 	
 	refresh_rxBuffer();
 	lcd_clrscr();
@@ -293,10 +319,10 @@ int enable_text_mode(void){
 		tm_flag=0; //novo
 		lcd_clrscr();
 		
-		PORTB &=~_BV(PB2); //RED OFF
-		PORTB |=_BV(PB0); //BLUE ON
+		BLUE_light();
 		return 1;
-	} else {
+		
+		} else {
 		lcd_clrscr();
 		_delay_ms(500);
 		lcd_puts_P("rxBuffer:");
@@ -362,7 +388,7 @@ int read_rxBuffer(void){
 		/////end novo
 		
 		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message;
-	
+		
 	}else if(strstr(rxBuffer,"+CME ERROR:"))
 	{
 		lcd_clrscr();
@@ -380,11 +406,11 @@ int read_rxBuffer(void){
 		/////end novo
 		
 		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message
-	
+		
 
 	}else if (strstr(rxBuffer,"OK"))
 	{
-	
+		
 		//case OK: continue
 		int read=0;
 
@@ -394,18 +420,18 @@ int read_rxBuffer(void){
 			get_from_number(read);
 			return 1;
 		}
-	
+		
 		else if(strstr(rxBuffer,"READ")){ //found READ in message
 			read=2;//READ message found number starts at position 22
 			sms_flag=1;
 			get_from_number(read);
 			return 1;
-		} else {
-	
+			} else {
+			
 			while(!enable_text_mode());
 			return 0; //vraca 0 i za error 4 i za OK koji se ne odnosi na procitanu ili ne procitanu poruku nego na nešto drugo
 			
-			}
+		}
 		
 	}
 	
@@ -418,7 +444,7 @@ void reboot(){
 	
 	refresh_rxBuffer();
 	lcd_clrscr();
-	lcd_puts_P("rebooting...");	
+	lcd_puts_P("rebooting...");
 	USART_puts(reboot);
 	USART_putc(13); //ENTER
 	_delay_ms(5000);
@@ -590,9 +616,8 @@ void LUX(){
 		_delay_ms(3000);
 		
 		
-		PORTB |=_BV(PB1); //GREEN ON
-		PORTB &=~_BV(PB0); //BLUE OFF
-
+		GREEN_light();
+	
 		lcd_clrscr();
 		lcd_gotoxy(0,0);
 		lcd_puts_P("Poslan odgovor");
@@ -600,8 +625,7 @@ void LUX(){
 		lcd_puts_P("na poruku.");
 		_delay_ms(2000);
 		
-		PORTB &=~_BV(PB1); //GREEN OFF
-		PORTB |=_BV(PB0); //BLUE ON
+		BLUE_light();
 		
 		
 		///novo
@@ -648,8 +672,7 @@ void LUX(){
 		//USART_putc(13); //ENTER->>>>NEEE!!!
 		_delay_ms(3000);
 		
-		PORTB |=_BV(PB1); //GREEN ON
-		PORTB &=~_BV(PB0); //BLUE OFF
+		GREEN_light();
 		
 		lcd_clrscr();
 		lcd_gotoxy(0,0);
@@ -658,8 +681,7 @@ void LUX(){
 		lcd_puts_P("na krivu poruku.");
 		_delay_ms(2000);
 		
-		PORTB &=~_BV(PB1); //GREEN OFF
-		PORTB |=_BV(PB0); //BLUE ON
+		BLUE_light();
 		
 		see_rxBuffer();
 		
