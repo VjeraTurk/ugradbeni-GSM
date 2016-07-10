@@ -23,6 +23,9 @@
 #define GREEN	PD3
 #define BLUE	PD2
 
+#define LED	PA2
+
+
 char txBuffer[TX_BUFFER_SIZE];
 char rxBuffer[RX_BUFFER_SIZE];
 
@@ -62,8 +65,8 @@ void init(){
 	//AVcc reference voltage
 	ADMUX = _BV(REFS0);
 
-	//PA7 RED LED
-	DDRA |= _BV(PA7); //LED
+	//PA2 RED LED
+	DDRA |= _BV(LED); //LED
 }
 //USART serial communication functions and interrupts
 ISR(USART_TXC_vect)
@@ -222,7 +225,7 @@ void GREEN_light(){
 }
 
 int enable_text_mode();
-void request_sms(char);
+void request_sms(char index, char tenner);
 int read_rxBuffer();
 
 int get_from_number(int);
@@ -308,6 +311,8 @@ int main(void)
 	while(!enable_text_mode());
 	
 	char index;
+	//char tenner='0';
+	char tenner;
 	
 	//	_3_sms_test(); -radi
 	//	date_time_check(); -radi
@@ -315,33 +320,34 @@ int main(void)
 	//	date_time_check(); -radi
 	
 	while (1) {
-		
-		for(index='1';index!='9';index++){
+		for(tenner='0';tenner!=':';tenner++){
+			for(index='1';index!=':';index++){
 
-			rq_flag=0;
-			sms_flag=0;
-			refresh_rxBuffer();
-			request_sms(index);    //_ms_delay() within request_sms
-			
-			//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
-			while(!read_rxBuffer())
-			{
-				//see_rxBuffer();
-				refresh_rxBuffer();
 				rq_flag=0;
 				sms_flag=0;
-				*from_number='\0';
-				request_sms(index);
-			}
-			
-			if(sms_flag){
-				LUX();
-				//delete_sms(index);
 				refresh_rxBuffer();
-				sms_flag=0;
-				*from_number='\0';
-			}
+				request_sms(index, tenner);    //_ms_delay() within request_sms
 			
+				//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
+				while(!read_rxBuffer())
+				{
+					//see_rxBuffer();
+					refresh_rxBuffer();
+					rq_flag=0;
+					sms_flag=0;
+					*from_number='\0';
+					request_sms(index, tenner);
+				}
+			
+				if(sms_flag){
+					LUX();
+					//delete_sms(index);
+					refresh_rxBuffer();
+					sms_flag=0;
+					*from_number='\0';
+				}
+			
+			}
 		}
 	}
 }
@@ -529,31 +535,43 @@ void echo(){
 	_delay_ms(1000);
 }
 
-void request_sms(char index){
+void request_sms(char index, char tenner){
 	
 	refresh_rxBuffer();
+	
 	char request[]="AT+CMGR=";
 	lcd_clrscr();
 	BLUE_light();
 	lcd_gotoxy(0,0);
 	lcd_puts_P("Dohvacam poruku");
 	lcd_gotoxy(0,1);
+	
 	lcd_puts_P ("indexa ");
+
+	if(tenner!='0'){
+	lcd_putc(tenner);
+	}
+
 	lcd_putc(index);
 	
 	USART_puts(request);
+	if(tenner!='0'){
+	USART_putc(tenner);
+	}
+
 	USART_putc(index);
+
 	rq_flag=1;
 	USART_putc(13); //ENTER
 	
 	//_delay_ms(3000);
-	lcd_gotoxy(8, 1);
-	lcd_putc('.');
-	_delay_ms(1000);
 	lcd_gotoxy(9, 1);
 	lcd_putc('.');
 	_delay_ms(1000);
 	lcd_gotoxy(10, 1);
+	lcd_putc('.');
+	_delay_ms(1000);
+	lcd_gotoxy(11, 1);
 	lcd_putc('.');
 	_delay_ms(1000);
 	
@@ -655,11 +673,11 @@ void LUX(){
 				after_lux = 1; //priprema za paljenje ledice ako sljedeca poruka bude "DA"
 			}
 		}
-		//novo:
-		refresh_rxBuffer();
-		//end novo
-		itoa(adch,rez,10);
 		
+		refresh_rxBuffer();
+		
+		itoa(adch,rez,10);
+		/*
 		USART_puts(sms);
 		USART_putc(34);
 		
@@ -677,7 +695,7 @@ void LUX(){
 		
 		_delay_ms(3000);
 		
-		
+		*/
 		GREEN_light();
 		
 		lcd_clrscr();
@@ -687,40 +705,41 @@ void LUX(){
 		lcd_puts_P("na poruku.");
 		_delay_ms(2000);
 		
+		see_rxBuffer();
 		BLUE_light();
 		
-		
-		///novo
-		see_rxBuffer();
-		///end novo
-
 		lcd_clrscr();
-		lcd_gotoxy(0,0);/**/
+		lcd_gotoxy(0,0);
 		
-		
+
 		} else if (strstr(rxBuffer, "DA")) {
 		if ((after_lux) && (!strcmp(from_number, from_number_lux))) {
 			
 			if (!upaljeno)
 			{
-				PORTA |= _BV(PA7);
+				PORTA |= _BV(LED);
 				upaljeno = 1;
 			}
 			
 			else
 			{
-				PORTA &=~_BV(PA7);
+				PORTA &=~_BV(LED);
 				upaljeno = 0;
 			}
 			
 			after_lux = 0;
 		}
 		
+		}else if(strstr(rxBuffer, "DUGA")){
+
+		rainbow();
+		
+		
 		}else{
 		//krive kodna rijec:
 		
 		refresh_rxBuffer();
-		
+		/*
 		USART_puts(sms);
 		USART_putc(34);
 		USART_puts(from_number);
@@ -733,7 +752,7 @@ void LUX(){
 		USART_putc(26);// CTRL+z
 		//USART_putc(13); //ENTER->>>>NEEE!!!
 		_delay_ms(3000);
-		
+		*/
 		GREEN_light();
 		
 		lcd_clrscr();
@@ -743,9 +762,9 @@ void LUX(){
 		lcd_puts_P("na krivu poruku.");
 		_delay_ms(2000);
 		
-		BLUE_light();
 		
 		see_rxBuffer();
+		BLUE_light();
 		
 	}
 
