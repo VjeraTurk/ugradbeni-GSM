@@ -44,7 +44,7 @@ void init(){
 	lcd_clrscr();
 	//backlight pins
 	DDRD |=_BV(RED) | _BV(GREEN) | _BV(BLUE); //RGB PB2 PB1 PB0
-	PORTD|=_BV(RED) | _BV(GREEN) | _BV(BLUE); 
+	PORTD|=_BV(RED) | _BV(GREEN) | _BV(BLUE);
 	
 	
 	//initialize UART
@@ -239,12 +239,66 @@ void delete_sms(char);
 void reboot();
 //“ATD*100#” -> za poziv
 
+//pink: blue+ pwm red TOP/2 (Barbie) ili TOP/1.1 (fuksija)
+//purple: blue+ pwm red TOP/3.5
+//yello: green+ pwm red TOP/1.5
+//orange: green + pwm red TOP/1.2 ili 1.1
+
+
+void rainbow(){
+	
+	cli();
+	
+	TCCR1A |= _BV(COM1B1)|_BV(WGM11)|_BV(WGM10);
+	TCCR1B |= _BV(WGM13)|_BV(WGM12);
+	OCR1A   = TOP;				// set TOP value 
+	OCR1B   = RED_DEF;		// set default contrast value
+	
+	TIMSK  |= _BV(OCIE1A);
+
+	TCCR1B |= _BV(CS11) | _BV(CS10);
+	
+	RED_light();		//RED
+	_delay_ms(1000);
+	
+	GREEN_light();
+	OCR1B   = TOP/1.1; 	// ORANGE
+	_delay_ms(1000);
+		
+	OCR1B   = TOP/1.5; // YELLOW
+	_delay_ms(1000);
+	
+	OCR1B   = TOP/3; //GREEN
+	GREEN_light();
+	
+	_delay_ms(1000);
+	
+	BLUE_light();
+	OCR1B   = TOP/10; //INDIGO
+	_delay_ms(1000);
+	
+	OCR1B   = TOP/3; //VIOLET
+	_delay_ms(1000);
+	
+	OCR1B   = TOP;
+	
+	TCCR1B &= ~_BV(CS11);
+	TCCR1B &= ~_BV(CS10);
+	
+	TIMSK  &=~_BV(OCIE1A);
+
+	
+	sei();
+}
+
 int main(void)
 {
 	
 	init();
-	sei();
-	_delay_ms(5000);
+	rainbow();
+
+
+	//sei();
 	
 	while(!enable_text_mode());
 	
@@ -617,7 +671,7 @@ void LUX(){
 		
 		
 		GREEN_light();
-	
+		
 		lcd_clrscr();
 		lcd_gotoxy(0,0);
 		lcd_puts_P("Poslan odgovor");
