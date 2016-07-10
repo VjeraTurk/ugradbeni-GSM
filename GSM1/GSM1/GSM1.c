@@ -24,6 +24,7 @@
 #define BLUE	PD2
 
 #define LED	PA2
+#define SLEEP	PA3
 
 
 char txBuffer[TX_BUFFER_SIZE];
@@ -175,17 +176,22 @@ void send_sms(char number[], char sms_text[]){
 	
 	see_rxBuffer();
 }
-void _3_sms_test(){
+void _4_sms_test(){
 
 	char p_sms[]="AT+CMGS=";
-	char p_number[]="385976737211";
-	char p_text[]="Kad ce";
-	char p_text2[]="vise";
-	char p_text3[]="praznici?";
+	//char p_number[]="385976737211";
+	char p_number[]="385996834050";
+
+	char p_text[]="LUX?";
+	char p_text2[]="LUKS?";
+	char p_text3[]="DUGA?";
+	char p_text4[]="DA";
+
 
 	send_sms(p_number,p_text);
 	send_sms(p_number,p_text2);
 	send_sms(p_number,p_text3);
+	send_sms(p_number,p_text4);
 }
 
 
@@ -238,8 +244,9 @@ volatile uint8_t upaljeno = 0;
 volatile char from_number_lux[13];
 
 
-void delete_sms(char);
+void delete_sms(char, char);
 void reboot();
+void sleep_mode();
 //“ATD*100#” -> za poziv
 
 //pink: blue+ pwm red TOP/2 (Barbie) ili TOP/1.1 (fuksija)
@@ -305,19 +312,27 @@ int main(void)
 	init();
 	rainbow();
 
-
 	//sei();
+
+	PORTA&=~_BV(SLEEP); //disable sleep mode?
+	PORTA|=_BV(SLEEP);	//enable sleep mode?
 	
 	while(!enable_text_mode());
 	
+	
 	char index;
-	//char tenner='0';
 	char tenner;
 	
-	//	_3_sms_test(); -radi
 	//	date_time_check(); -radi
 	//	reboot(); -radi
 	//	date_time_check(); -radi
+	
+//ovdje si:
+
+	//_4_sms_test(); 
+	
+	//sleep_mode();
+	//see_rxBuffer();
 	
 	while (1) {
 		for(tenner='0';tenner!=':';tenner++){
@@ -341,7 +356,7 @@ int main(void)
 			
 				if(sms_flag){
 					LUX();
-					//delete_sms(index);
+					delete_sms(index, tenner);
 					refresh_rxBuffer();
 					sms_flag=0;
 					*from_number='\0';
@@ -381,7 +396,7 @@ int enable_text_mode(void){
 	_delay_ms(1000);
 	
 	if (tm_flag==2){
-		tm_flag=0; //novo
+		tm_flag=0; 
 		lcd_clrscr();
 		
 		BLUE_light();
@@ -443,7 +458,7 @@ int read_rxBuffer(void){
 		_delay_ms(1000);
 		lcd_gotoxy(0,0);
 		
-		/////novo:
+		
 		lcd_clrscr();
 		//lcd_puts(rxBuffer);
 		_delay_ms(3000);
@@ -452,7 +467,7 @@ int read_rxBuffer(void){
 		//reboot();
 		//while(!enable_text_mode());
 		
-		/////end novo
+	
 		
 		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message;
 		
@@ -464,13 +479,13 @@ int read_rxBuffer(void){
 		_delay_ms(1000);
 		lcd_gotoxy(0,0);
 		
-		/////novo:
+
 		lcd_clrscr();
 		//lcd_puts(rxBuffer);
 		_delay_ms(3000);
 		see_rxBuffer();
 		refresh_rxBuffer();
-		/////end novo
+	
 		
 		return 0; //ERROR 4 or some other error occured- return 0 so code can repeat request for the same index message
 		
@@ -520,6 +535,22 @@ void reboot(){
 	_delay_ms(1000);
 	
 }
+void sleep_mode(){
+	
+	char sleep[]="AT+S32K";
+	
+	refresh_rxBuffer();
+	lcd_clrscr();
+	lcd_puts_P("sleep mode...");
+	USART_puts(sleep);
+	USART_putc(13); //ENTER
+	_delay_ms(5000);
+	lcd_clrscr();
+	see_rxBuffer();
+	_delay_ms(1000);
+	
+}
+
 void echo(){
 
 	char echo[]="ate1";
@@ -577,24 +608,35 @@ void request_sms(char index, char tenner){
 	
 }
 
-void delete_sms(char index){
+void delete_sms(char index, char tenner){
 	
 	char delete[]="AT+CMGD=";
 	USART_puts(delete);
+	
+	
+	if(tenner!='0'){
+		USART_putc(tenner);	
+	}
+	
 	USART_putc(index);
+	
 	
 	del_flag=1;
 	USART_putc(13);
-	_delay_ms(3000);
+	_delay_ms(4000);
 	if(del_flag==2) {
 		del_flag=0;
-		lcd_gotoxy(0,0);
-		lcd_puts("izbrisana poruka");
+		lcd_clrscr();
+		lcd_puts_P("izbrisana poruka");
 		lcd_gotoxy(0,1);
 		lcd_puts("br ");
-		lcd_puts(index);
-		
 
+		if(tenner!='0'){
+		lcd_putc(tenner);
+		}
+		lcd_putc(index);
+		_delay_ms(2000);		
+		see_rxBuffer();
 		_delay_ms(1000);
 	}
 }
