@@ -314,22 +314,24 @@ int main(void)
 
 	//sei();
 
-	PORTA&=~_BV(SLEEP); //disable sleep mode?
-	PORTA|=_BV(SLEEP);	//enable sleep mode?
-	
+
 	while(!enable_text_mode());
 	
 	
 	char index;
 	char tenner;
 	
-	//	date_time_check(); -radi
-	//	reboot(); -radi
-	//	date_time_check(); -radi
+	//	date_time_check();	-radi
+	//	reboot();			-radi
+	//	date_time_check();	-radi
 	
 
 	_4_sms_test(); 
 	//ovdje si:
+	
+		///PORTA&=~_BV(SLEEP); //disable sleep mode?
+		///PORTA|=_BV(SLEEP);	//enable sleep mode?
+		
 	///sleep_mode();
 	///see_rxBuffer();
 	
