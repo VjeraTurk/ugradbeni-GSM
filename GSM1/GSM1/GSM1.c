@@ -216,7 +216,6 @@ void RED_light(){
 	PORTD &=~_BV(BLUE); //BLUE OFF
 	PORTD &=~_BV(GREEN);	//GREEN OFF
 }
-
 void BLUE_light(){
 	PORTD |=_BV(BLUE); //BLUE ON
 	
@@ -306,6 +305,25 @@ void rainbow(){
 	sei();
 }
 
+void money_check(){
+	
+	//ATD*100# 
+	//http://stackoverflow.com/questions/22238243/gsm-atd-command-to-check-my-balance
+	//AT+CUSD=[<n>[,<str>[,<dcs>]]]
+	char money[]="AT+CUSD=[<n>[,<str>[,<dcs>]]]";
+
+	refresh_rxBuffer();
+
+	USART_puts(money);
+	USART_putc(34); //Enter
+	//USART_putc(26); // CTRL+z
+	_delay_ms(3000);
+
+	see_rxBuffer();
+}
+void pay(){
+	
+}
 int main(void)
 {
 	
@@ -317,7 +335,7 @@ int main(void)
 
 	while(!enable_text_mode());
 	
-	
+
 	char index;
 	char tenner;
 	
@@ -326,7 +344,7 @@ int main(void)
 	//	date_time_check();	-radi
 	
 
-	_4_sms_test(); 
+	//_4_sms_test(); 
 	//ovdje si:
 	
 		///PORTA&=~_BV(SLEEP); //disable sleep mode?
@@ -334,6 +352,7 @@ int main(void)
 		
 	///sleep_mode();
 	///see_rxBuffer();
+	//money_check();
 	
 	while (1) {
 		for(tenner='0';tenner!=':';tenner++){
