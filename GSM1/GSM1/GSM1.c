@@ -300,8 +300,8 @@ void rainbow(){
 	TIMSK  &=~_BV(OCIE1A);
 
 	DDRD |=_BV(RED) | _BV(GREEN) | _BV(BLUE); //RGB PB2 PB1 PB0
-	//PORTD|=_BV(RED) | _BV(GREEN) | _BV(BLUE);
-	PORTD|=_BV(GREEN) | _BV(BLUE);
+	PORTD|=_BV(RED) | _BV(GREEN) | _BV(BLUE);
+	//PORTD|=_BV(GREEN) | _BV(BLUE);
 	
 	sei();
 }
@@ -327,12 +327,11 @@ int main(void)
 	//	reboot(); -radi
 	//	date_time_check(); -radi
 	
-//ovdje si:
 
-	//_4_sms_test(); 
-	
-	//sleep_mode();
-	//see_rxBuffer();
+	_4_sms_test(); 
+	//ovdje si:
+	///sleep_mode();
+	///see_rxBuffer();
 	
 	while (1) {
 		for(tenner='0';tenner!=':';tenner++){
@@ -610,6 +609,7 @@ void request_sms(char index, char tenner){
 
 void delete_sms(char index, char tenner){
 	
+	refresh_rxBuffer();
 	char delete[]="AT+CMGD=";
 	USART_puts(delete);
 	
@@ -680,7 +680,7 @@ volatile uint8_t getLight(uint8_t channel)
 void LUX(){
 	//sms define
 	char sms[]="AT+CMGS="; //sms command
-	char *sms_text="Intenzitet: ";
+	char *sms_text="intenzitet iznosi: ";
 	char rez[10];
 	char *dannoc="d/n"; // warning undefined
 	uint8_t adch=0;
@@ -718,8 +718,12 @@ void LUX(){
 		
 		refresh_rxBuffer();
 		
+		/// tog i tog datuma, u toliko sati intenzitet je ___
+		///char present[]=present=date_time_check();
+		
 		itoa(adch,rez,10);
-		/*
+		
+		
 		USART_puts(sms);
 		USART_putc(34);
 		
@@ -729,6 +733,8 @@ void LUX(){
 		USART_putc(13);
 		_delay_ms(1000);
 
+		///USART_puts(present);
+		
 		USART_puts(sms_text);
 		USART_puts(rez);
 		USART_puts(dannoc);
@@ -737,7 +743,7 @@ void LUX(){
 		
 		_delay_ms(3000);
 		
-		*/
+		
 		GREEN_light();
 		
 		lcd_clrscr();
@@ -781,7 +787,7 @@ void LUX(){
 		//krive kodna rijec:
 		
 		refresh_rxBuffer();
-		/*
+		
 		USART_puts(sms);
 		USART_putc(34);
 		USART_puts(from_number);
@@ -794,7 +800,7 @@ void LUX(){
 		USART_putc(26);// CTRL+z
 		//USART_putc(13); //ENTER->>>>NEEE!!!
 		_delay_ms(3000);
-		*/
+		
 		GREEN_light();
 		
 		lcd_clrscr();
