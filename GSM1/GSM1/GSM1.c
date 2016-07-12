@@ -34,6 +34,7 @@
 #define LED	PA2
 #define SLEEP	PA3
 
+/**3-state flags: 0 - command not sent,  1 - command sent, 2 - OK answer received from GSM module*/
 volatile uint8_t tm_flag=0;
 volatile uint8_t rq_flag=0;
 volatile uint8_t del_flag=0;
@@ -129,8 +130,6 @@ void USART_puts(char str[])
  */
 void init();
 
-
-/**3-state flags: 0 - command not sent,  1 - command sent, 2 - OK answer received from GSM module*/
 
 /**
  * @brief This function sends at command for entering text mode. It is called in while loop
