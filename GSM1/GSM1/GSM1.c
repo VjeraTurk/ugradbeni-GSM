@@ -1,6 +1,6 @@
 /**
  * @file GSM1.c
- * @author Lovro Speti?, Vjera Turk, Patricija Zubali?
+ * @author Lovro Spetic, Vjera Turk, Patricija Zubalic
  * @date 12 Jul 2016
  * @brief This is the main file where AT commands are sent to gsm module requesting received SMS messages saved on SIM card within GSM module.
  * SMS messages are being analyzed and replayed to with light intensity and light is switched off and on depending on SMS content.
@@ -34,16 +34,21 @@
 #define LED	PA2
 #define SLEEP	PA3
 
-/**3-state flags: 0 - command not sent,  1 - command sent, 2 - OK answer received from GSM module*/
+/**3-state flag: 0 - command not sent,  1 - command sent, 2 - OK answer received from GSM module*/
 volatile uint8_t tm_flag=0;
+/**3-state flag: 0 - command not sent,  1 - command sent, 2 - OK answer received from GSM module*/
 volatile uint8_t rq_flag=0;
+/**3-state flag: 0 - command not sent,  1 - command sent, 2 - OK answer received from GSM module*/
 volatile uint8_t del_flag=0;
-
+/**2-state flag: 0 - sms not (jet) found,  1 - a valid READ or UNREAD sms found */
 volatile int sms_flag=0;
 
 
 /////// U A R T communication ////////////
 char txBuffer[TX_BUFFER_SIZE];
+/**
+
+*/
 char rxBuffer[RX_BUFFER_SIZE];
 
 volatile uint8_t txReadPos=0;
@@ -157,12 +162,12 @@ void request_sms(char index, char tenner);
  * @brief Function analyzes  what is written in rxBuffer after GSM finishes responding to AT command (requesting SMS message).
  * There are 3 answers it is looking for:
  * 1)	+CME: ERROR 321
- * 2)	+CMGR: "REC UNREAD","0","<phone number>",,"yy/MM/dd,hh:mm:ss±zz"
+ * 2)	+CMGR: "REC UNREAD","0","<phone number>",,"yy/MM/dd,hh:mm:ss+zz"
  * <sms text>
  *
  * OK
  *
- * 3)	+CMGR: "REC READ","0","<phone number>",,"yy/MM/dd,hh:mm:ss±zz"
+ * 3)	+CMGR: "REC READ","0","<phone number>",,"yy/MM/dd,hh:mm:ss+zz"
  * <sms text>
  *
  * OK
@@ -207,7 +212,15 @@ void LUX();
 volatile uint8_t getLight(uint8_t);
 	volatile uint8_t upaljeno = 0;
 	volatile char from_number_lux[13];
-
+/**
+ * @brief This function sends at command for deleting sms of certain index. 
+ * For indexes higher than 9, it also sends out index's tenner. 
+ * (The highest index it can request is 99, but since SIM car memory can handle around 25 messages it is not required)
+ * It than waits for GSM module to reply with OK, meaning sms was successfuly deleted.
+ *
+ * @param index 
+ * @param tenner
+ */
 void delete_sms(char index, char tenner);
 
 /**
@@ -227,15 +240,7 @@ void see_rxBuffer();
  */
 void refresh_rxBuffer();
 
-/**
- * @brief This function sends at command for deleting sms of certain index. 
- * For indexes higher than 9, it also sends out index's tenner. 
- * (The highest index it can request is 99, but since SIM car memory can handle around 25 messages it is not required)
- * It than waits for GSM module to reply with OK, meaning sms was successfuly deleted.
- *
- * @param index 
- * @param tenner
- */
+
 
 void RED_light();
 void GREEN_light();
