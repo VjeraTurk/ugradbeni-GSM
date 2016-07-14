@@ -347,8 +347,10 @@ int main(void)
 			lcd_puts_P("got sms");
 			_delay_ms(3000);
 			read_new_sms();
+			
 		}
 	}
+
 	while (0) { one_by_one();}
 }
 
@@ -367,19 +369,20 @@ void read_new_sms(){
 		lcd_clrscr();
 		lcd_puts_P("+CMT");
 		lcd_gotoxy(0,1);
+		lcd_puts_P("broj:");
 		
 		while(rxReadPos!=rxWritePos){
 			
 			if(rxBuffer[rxReadPos-1]== '"' && is_num==0){
-				//lcd_putc(34);
+				lcd_putc(34);
 				is_num=1;
-				lcd_puts_P("broj:");
+				
 			}
 
 			if(is_num==1){
 				lcd_putc(rxBuffer[rxReadPos]);
-				//number[i]=rxBuffer[rxReadPos];
-				//i++;
+				number[k]=rxBuffer[rxReadPos];
+				k++;
 			}
 			
 			if(rxBuffer[rxReadPos+1]== '"' && is_num==1){
@@ -393,6 +396,7 @@ void read_new_sms(){
 	lcd_gotoxy(0,1);
 	
 	//lcd_puts(number);
+	
 	_delay_ms(3000);	
 	
 
