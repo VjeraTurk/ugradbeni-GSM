@@ -55,6 +55,7 @@ volatile uint8_t txReadPos=0;
 volatile uint8_t txWritePos=0;
 volatile uint8_t rxReadPos=0;
 volatile uint8_t rxWritePos=0;
+volatile uint8_t first_data = -1;	 
 /**
  * @brief USART Interrupt service routine which fills rxBuffer the moment new data is received
  * 
@@ -62,10 +63,16 @@ volatile uint8_t rxWritePos=0;
  * (an answer to which AT command: request, delete, text mode)
  * It then sets flag to '2', enabling actions that follow after the return from the interrupt service routine. 
  */
+
+/*
 ISR(USART_RXC_vect)
 {
+	if(first_data){
+		lcd_gotoxy(0,0);
+		lcd_puts_P("Prekid sleep mode");
+	}
 	rxBuffer[rxWritePos] = UDR;
-	//lcd_putc (rxBuffer[rxWritePos]);
+	lcd_putc (rxBuffer[rxWritePos]);
 	
 	if(rxBuffer[rxWritePos]=='K' && rxBuffer[rxWritePos-1]=='O')
 	{
@@ -91,6 +98,33 @@ ISR(USART_RXC_vect)
 		rxWritePos=0;
 	}
 }
+*/
+ISR(USART_RXC_vect)
+{
+	if(first_data == 0){
+		lcd_gotoxy(0,0);
+		lcd_puts_P("Prekid sleep mode");
+		first_data = 1;
+	}
+	rxBuffer[rxWritePos] = UDR;
+	lcd_putc (rxBuffer[rxWritePos]);
+	
+	if(rxBuffer[rxWritePos]=='K' && rxBuffer[rxWritePos-1]=='O')
+	{
+		if(tm_flag==1){
+			tm_flag=2;
+		}
+		
+	}
+	
+	rxWritePos++;
+	if(rxWritePos>=RX_BUFFER_SIZE)
+	{
+		rxWritePos=0;
+	}
+}
+
+
 ISR(USART_TXC_vect)
 {
 	if(txReadPos != txWritePos)
@@ -126,7 +160,6 @@ void USART_puts(char str[])
 	}
 }
 //////////////////////////////////////////
-
 
 
 /**
@@ -199,7 +232,7 @@ int get_from_number(int);
 	volatile char from_number[13];
 
 /** 
- * @brief If sms_flag is set to 2, meaning there is an SMS in rxBuffer, LUX()function is entered from main.
+ * @brief If sms_flag is set to 2, meaning there is an SMS in rxBuffer, LUX()function is entered.
  * It seeks code word "LUX?" in received SMS. 
  * If code word "LUX?" is found getLight() function mesures light intensity
  * and returns value between 1-255. Along with "dan" or "noc" (day(>200) or night(<200)) this value is send back via SMS.
@@ -240,17 +273,19 @@ void see_rxBuffer();
  */
 void refresh_rxBuffer();
 
-
-
 void RED_light();
 void GREEN_light();
 void BLUE_light();
 
 void rainbow();
 
-
-
-
+/**
+ * @brief This function repeats the standard procedure of requesting, analyzing, responding to and deleting SMS for the 39 messages.
+ * Depending on SIM card, it can contain 25 up to 32 sms messages
+ *
+ * It is called in while loop from main function.
+ */
+void one_by_one();
 /**
  * @brief This function is for sending sms containing given text to given number
  *
@@ -265,8 +300,13 @@ void date_time_check();
 void reboot();
 
 void sleep_mode();
+void read_new_sms();
 
-
+void avr_sleep_mode(){	
+	
+	MCUCR|=_BV(SM0)|_BV(SM1)|_BV(SE); //pover save
+}
+	
 /**
  * @brief Main
  *
@@ -276,56 +316,92 @@ int main(void)
 {
 	
 	init();
-	rainbow();
-
 	sei();
-
 	while(!enable_text_mode());
 	
-
-	char index;
-	char tenner;
-
+	char send_sms_to_serial_upon_receipt[]= "AT+CNMI=3,3,0,0";
+	
+	lcd_clrscr();
+	lcd_puts_P("Send sms to uart");
+	USART_puts(send_sms_to_serial_upon_receipt);
+	USART_putc(13); //ENTER
+	
+	_delay_ms(2000);
+	
+	sleep_mode();
+	_delay_ms(3000);
+	lcd_clrscr();
+	first_data = 0;
+	refresh_rxBuffer();
 	//ovdje si:
+	PORTA|=_BV(SLEEP);
 	
-	///PORTA&=~_BV(SLEEP); //disable sleep mode?
-	///PORTA|=_BV(SLEEP);	//enable sleep mode?	
-	///sleep_mode();
+	//PORTA|=_BV(SLEEP);	//HIGH voltage- enable sleep mode	
+	//PORTA&=~_BV(SLEEP); //LOW voltage- disable sleep mode
+	//send_sms("385996834050","proba");
+	while(1){
 	
-	while (1) {
-		for(tenner='0';tenner!=':';tenner++){
-			for(index='1';index!=':';index++){
-
-				rq_flag=0;
-				sms_flag=0;
-				refresh_rxBuffer();
-				request_sms(index, tenner);    //_ms_delay() within request_sms
-			
-				//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
-				while(!read_rxBuffer())
-				{
-					//see_rxBuffer();
-					refresh_rxBuffer();
-					rq_flag=0;
-					sms_flag=0;
-					*from_number='\0';
-					request_sms(index, tenner);
-				}
-			
-				if(sms_flag){
-					LUX();
-					delete_sms(index, tenner);
-					refresh_rxBuffer();
-					sms_flag=0;
-					*from_number='\0';
-				}
-			
-			}
+		if(first_data == 1 ){
+			_delay_ms(5000);
+			lcd_clrscr();
+			lcd_puts_P("got sms");
+			_delay_ms(3000);
+			read_new_sms();
 		}
 	}
+	while (0) { one_by_one();}
 }
 
 
+volatile char *number;
+volatile uint8_t k = 0;
+void read_new_sms(){
+	
+	//sms format +CMT: "+385976737211","+385980501","16/07/13,22:01:28+08",4 <enter>
+	//<sms text>
+	volatile uint8_t is_num=0;
+	int i=0;
+	*number='\0';
+	
+	if(strstr(rxBuffer,"+CMT:")){
+		lcd_clrscr();
+		lcd_puts_P("+CMT");
+		lcd_gotoxy(0,1);
+		
+		while(rxReadPos!=rxWritePos){
+			
+			if(rxBuffer[rxReadPos-1]== '"' && is_num==0){
+				//lcd_putc(34);
+				is_num=1;
+				lcd_puts_P("broj:");
+			}
+
+			if(is_num==1){
+				lcd_putc(rxBuffer[rxReadPos]);
+				//number[i]=rxBuffer[rxReadPos];
+				//i++;
+			}
+			
+			if(rxBuffer[rxReadPos+1]== '"' && is_num==1){
+				lcd_putc(34);
+				is_num=2;
+			}
+			
+			rxReadPos++;
+		}
+	//lcd_clrscr();
+	lcd_gotoxy(0,1);
+	
+	//lcd_puts(number);
+	_delay_ms(3000);	
+	
+
+	}
+	
+
+	
+	
+}
 ///////////////////////////////////////////////////
 void init(){
 	//initialize IO
@@ -353,6 +429,9 @@ void init(){
 
 	//PA2 RED LED
 	DDRA |= _BV(LED); //LED
+	DDRA |= _BV(SLEEP); //LED
+	
+	PORTA&=~_BV(SLEEP);
 }
 
 int enable_text_mode(void){
@@ -396,6 +475,42 @@ int enable_text_mode(void){
 		_delay_ms(500);
 		see_rxBuffer();
 		return 0;
+	}
+}
+
+void one_by_one(){
+	
+	char index;
+	char tenner;
+	
+	for(tenner='0';tenner!=':';tenner++){
+		for(index='1';index!='4';index++){
+
+			rq_flag=0;
+			sms_flag=0;
+			refresh_rxBuffer();
+			request_sms(index, tenner);    //_ms_delay() within request_sms
+			
+			//until there is "OK" or "+CMS ERROR: 321" in rxBuffer, request for message
+			while(!read_rxBuffer())
+			{
+				//see_rxBuffer();
+				refresh_rxBuffer();
+				rq_flag=0;
+				sms_flag=0;
+				*from_number='\0';
+				request_sms(index, tenner);
+			}
+			
+			if(sms_flag){
+				LUX();
+				delete_sms(index, tenner);
+				refresh_rxBuffer();
+				sms_flag=0;
+				*from_number='\0';
+			}
+			
+		}
 	}
 }
 
@@ -865,6 +980,7 @@ void rainbow(){
 
 ////////////////////////////////////////////////
 
+
 void send_sms(char number[], char sms_text[]){
 	
 	char AT_send_sms[]="AT+CMGS=";
@@ -951,11 +1067,11 @@ void reboot(){
 //ovdje si:
 void sleep_mode(){
 	
-	char sleep[]="AT+S32K";
+	char sleep[]="AT+S32K=1";
 	
 	refresh_rxBuffer();
 	lcd_clrscr();
-	lcd_puts_P("sleep mode...");
+	lcd_puts_P("allow sleep mode");
 	USART_puts(sleep);
 	USART_putc(13); //ENTER
 	_delay_ms(5000);
