@@ -347,7 +347,6 @@ int main(void)
 			lcd_puts_P("got sms");
 			_delay_ms(3000);
 			read_new_sms();
-			
 		}
 	}
 
@@ -355,14 +354,13 @@ int main(void)
 }
 
 
-volatile char *number;
 volatile uint8_t k = 0;
+volatile char number[13];
 void read_new_sms(){
 	
 	//sms format +CMT: "+385976737211","+385980501","16/07/13,22:01:28+08",4 <enter>
 	//<sms text>
 	volatile uint8_t is_num=0;
-	int i=0;
 	*number='\0';
 	
 	if(strstr(rxBuffer,"+CMT:")){
@@ -374,19 +372,20 @@ void read_new_sms(){
 		while(rxReadPos!=rxWritePos){
 			
 			if(rxBuffer[rxReadPos-1]== '"' && is_num==0){
-				lcd_putc(34);
+				//lcd_putc(34);
 				is_num=1;
 				
 			}
 
 			if(is_num==1){
-				lcd_putc(rxBuffer[rxReadPos]);
+				//lcd_putc(rxBuffer[rxReadPos]);
 				number[k]=rxBuffer[rxReadPos];
+				number[k+1]='\0';
 				k++;
 			}
 			
 			if(rxBuffer[rxReadPos+1]== '"' && is_num==1){
-				lcd_putc(34);
+				//lcd_putc(34);
 				is_num=2;
 			}
 			
@@ -394,12 +393,15 @@ void read_new_sms(){
 		}
 	//lcd_clrscr();
 	lcd_gotoxy(0,1);
-	
-	//lcd_puts(number);
-	
+	lcd_puts(number);
 	_delay_ms(3000);	
 	
-
+	for(k=0;k!=14;k++){
+		from_number[k]=number[k];
+	}
+	
+	LUX();
+	first_data=0;
 	}
 	
 
@@ -574,7 +576,7 @@ int read_rxBuffer(void){
 		if (rq_flag == 2) lcd_putc(rxBuffer[rxReadPos]);
 		rxReadPos++;
 		_delay_ms(175);
-	}
+		}
 	
 
 	if(strstr(rxBuffer,"+CMS ERROR: 321"))
@@ -732,7 +734,11 @@ void LUX(){
 		
 		itoa(adch,rez,10);
 		
-		
+		lcd_clrscr();
+		lcd_gotoxy(0,0);
+		lcd_puts_P("Saljem poruku");
+		lcd_gotoxy(0,1);
+		lcd_puts(from_number);
 		USART_puts(sms);
 		USART_putc(34);
 		
