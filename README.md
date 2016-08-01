@@ -1,14 +1,13 @@
 # README #
 
-This code is written for and tested on avr ATmega32 microchip and GSM module SM5100B. It uses ADC converter and with simple fotoresistor measures light intensity. It's primary function is to read and reply on sms demanding light intensity, and switching lights (LED) if requested in second sms.
+This code is written for and tested on avr ATmega32 microchip and GSM module SM5100B.  It's primary function is to read and reply on sms demanding light intensity, and switching off/on lights (LED) if requested in second sms. It uses ADC conversion and with simple fotoresistor measures light intensity.
 
 
 
 ### What is this repository for? ###
 
-* Quick summary
-* Version
-* [Learn Markdown](https://bitbucket.org/tutorials/markdowndemo)
+* Uni. Project
+* Version 1.0
 
 ### How do I get set up? ###
 
@@ -27,5 +26,5 @@ This code is written for and tested on avr ATmega32 microchip and GSM module SM5
 
 ### Who do I talk to? ###
 
-* Repo owner or admin
-* Other community or team contact
+* Repo owner or admin Patricija Zubalic
+* Vjera Turk, Lovro Spetic
