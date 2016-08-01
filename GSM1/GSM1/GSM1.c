@@ -315,9 +315,19 @@ void avr_sleep_mode(){
 int main(void)
 {
 	
+
 	init();
 	sei();
+	
+
 	while(!enable_text_mode());
+	/*
+	char del[] = "CMGD=ALL";
+	lcd_puts_P("Delete all sms");
+	USART_puts(del);
+	USART_putc(13); //ENTER
+	_delay_ms(4000);
+	*/
 	
 	char send_sms_to_serial_upon_receipt[]= "AT+CNMI=3,3,0,0";
 	
@@ -327,6 +337,8 @@ int main(void)
 	USART_putc(13); //ENTER
 	
 	_delay_ms(2000);
+	
+	
 	
 	sleep_mode();
 	_delay_ms(3000);
@@ -347,6 +359,9 @@ int main(void)
 			lcd_puts_P("got sms");
 			_delay_ms(3000);
 			read_new_sms();
+			first_data=-1;
+			sleep_mode();
+			first_data = 0;
 		}
 	}
 
@@ -362,7 +377,8 @@ void read_new_sms(){
 	//<sms text>
 	volatile uint8_t is_num=0;
 	*number='\0';
-	
+	*from_number='\0';
+	k=0;
 	if(strstr(rxBuffer,"+CMT:")){
 		lcd_clrscr();
 		lcd_puts_P("+CMT");
@@ -401,11 +417,10 @@ void read_new_sms(){
 	}
 	
 	LUX();
-	first_data=0;
+	_delay_ms(5000);
 	}
 	
 
-	
 	
 }
 ///////////////////////////////////////////////////
