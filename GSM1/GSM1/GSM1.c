@@ -310,7 +310,7 @@ void avr_sleep_mode(){
 /**
  * @brief Main
  *
- * Function is called once the program is started
+ * Function is called once the program is started.
  */
 int main(void)
 {
@@ -321,13 +321,15 @@ int main(void)
 	
 
 	while(!enable_text_mode());
-	/*
-	char del[] = "CMGD=ALL";
+	
+	//delete all recived, read messages
+	char del[] = "AT+CMGD=1,4";
 	lcd_puts_P("Delete all sms");
 	USART_puts(del);
 	USART_putc(13); //ENTER
 	_delay_ms(4000);
-	*/
+	
+	//list all recived unread :char list[] = "AT+CMGL=1";
 	
 	char send_sms_to_serial_upon_receipt[]= "AT+CNMI=3,3,0,0";
 	
@@ -1004,7 +1006,6 @@ void rainbow(){
 	
 	sei();
 }
-
 ////////////////////////////////////////////////
 
 
