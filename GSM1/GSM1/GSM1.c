@@ -361,6 +361,8 @@ int main(void)
 			read_new_sms();
 			first_data=-1;
 			sleep_mode();
+			_delay_ms(3000);
+			lcd_clrscr();
 			first_data = 0;
 		}
 	}
