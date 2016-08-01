@@ -293,6 +293,15 @@ void one_by_one();
  * @param sms_text[] text to send
  */
 void send_sms(char number[], char sms_text[]);
+
+/**
+ * @brief In sleep mode, this function reads content sent to UART upon receipt. 
+ * Finds out sender's number and calls LUX() to analyze sms text. 
+ * Afterwords, puts gsm to sleep mode by calling sleep_mode() 
+ *
+ */
+void read_new_sms();
+
 void _4_sms_test();
 
 void echo();
@@ -300,12 +309,39 @@ void date_time_check();
 void reboot();
 
 void sleep_mode();
-void read_new_sms();
+/*\cond
+
+//ovdje si:
 
 void avr_sleep_mode(){	
 	
-	MCUCR|=_BV(SM0)|_BV(SM1)|_BV(SE); //pover save
+	MCUCR|=_BV(SM0)|_BV(SM1)|_BV(SE); //power save
 }
+
+void money_check(){
+	
+	//ATD*100# 
+	//http://stackoverflow.com/questions/22238243/gsm-atd-command-to-check-my-balance
+	//AT+CUSD=[<n>[,<str>[,<dcs>]]]
+	char money[]="AT+CUSD=[<n>[,<str>[,<dcs>]]]";
+
+	refresh_rxBuffer();
+
+	USART_puts(money);
+	USART_putc(34); //Enter
+	//USART_putc(26); // CTRL+z
+	_delay_ms(3000);
+
+	see_rxBuffer();
+}
+void pay(){
+	
+}
+
+\endcond
+
+*/
+
 	
 /**
  * @brief Main
@@ -322,7 +358,7 @@ int main(void)
 
 	while(!enable_text_mode());
 	
-	//delete all recived, read messages
+	//delete all recived read messages
 	char del[] = "AT+CMGD=1,4";
 	lcd_puts_P("Delete all sms");
 	USART_puts(del);
@@ -337,7 +373,6 @@ int main(void)
 	lcd_puts_P("Send sms to uart");
 	USART_puts(send_sms_to_serial_upon_receipt);
 	USART_putc(13); //ENTER
-	
 	_delay_ms(2000);
 	
 	
@@ -352,7 +387,7 @@ int main(void)
 	
 	//PORTA|=_BV(SLEEP);	//HIGH voltage- enable sleep mode	
 	//PORTA&=~_BV(SLEEP); //LOW voltage- disable sleep mode
-	//send_sms("385996834050","proba");
+	
 	while(1){
 	
 		if(first_data == 1 ){
@@ -375,6 +410,7 @@ int main(void)
 
 volatile uint8_t k = 0;
 volatile char number[13];
+
 void read_new_sms(){
 	
 	//sms format +CMT: "+385976737211","+385980501","16/07/13,22:01:28+08",4 <enter>
@@ -423,9 +459,6 @@ void read_new_sms(){
 	LUX();
 	_delay_ms(5000);
 	}
-	
-
-	
 }
 ///////////////////////////////////////////////////
 void init(){
@@ -927,8 +960,6 @@ void refresh_rxBuffer(){
 	rxWritePos=0;
 }
 
-
-
 void RED_light(){
 	PORTD |=_BV(RED); //RED ON
 	
@@ -1007,8 +1038,6 @@ void rainbow(){
 	sei();
 }
 ////////////////////////////////////////////////
-
-
 void send_sms(char number[], char sms_text[]){
 	
 	char AT_send_sms[]="AT+CMGS=";
@@ -1091,8 +1120,6 @@ void reboot(){
 	_delay_ms(1000);
 	
 }
-
-//ovdje si:
 void sleep_mode(){
 	
 	char sleep[]="AT+S32K=1";
@@ -1108,36 +1135,3 @@ void sleep_mode(){
 	_delay_ms(1000);
 	
 }
-
-
-/* code in progress:
-
-void money_check(){
-	
-	//ATD*100# 
-	//http://stackoverflow.com/questions/22238243/gsm-atd-command-to-check-my-balance
-	//AT+CUSD=[<n>[,<str>[,<dcs>]]]
-	char money[]="AT+CUSD=[<n>[,<str>[,<dcs>]]]";
-
-	refresh_rxBuffer();
-
-	USART_puts(money);
-	USART_putc(34); //Enter
-	//USART_putc(26); // CTRL+z
-	_delay_ms(3000);
-
-	see_rxBuffer();
-}
-void pay(){
-	
-}
-*/
-/*
-dodati novu provjeru umjesto trenutne za tocnije rezultate!:
-while(isdigit(rxBuffer[i])){
-	from_number[j]=rxBuffer[i];
-	j++;
-	i++;
-}
-I drugacije odrediti digit_pos (npr. tražiti ")
-*/
