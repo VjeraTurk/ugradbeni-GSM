@@ -1,3 +1,21 @@
+
+/*! \mainpage Zavrsni projekt iz kolegija Ugradbeni racunalni sustavi
+ *
+ * \section intro_sec Opis
+ *
+ * Glavni cilj zavrsnog projekta bio je primijeniti, prosiriti i demonstrirati steceno znanje iz
+ * programiranja ugradbenih ra?unalnih sustava na danom uredaju. U sredistu naseg  projekta je GSM/GPRS modul-SM5100B za mobilnu komunikaciju.
+ * 
+ *
+ * \section authors_sec Autori
+ * - Lovro Spetic
+ * - Vjera Turk
+ * - Patricija Zubalic
+ *
+ * 
+ */
+
+
 /**
  * @file GSM1.c
  * @author Lovro Spetic, Vjera Turk, Patricija Zubalic
@@ -8,6 +26,9 @@
 
 #define  F_CPU           8000000UL
 
+#include "lcd.h"
+#include "GSM1.h"
+
 #include <stdlib.h>
 #include <avr/io.h>
 #include <util/delay.h>
@@ -15,7 +36,6 @@
 #include <avr/interrupt.h>
 #include <string.h>
 
-#include "lcd.h"
 
 #define F_PWM           1000U 
 #define N               8
